@@ -179,5 +179,5 @@ sophistication.
 - [build-deploy.md](build-deploy.md) — the build/deploy intelligence model
 - [../registries/mcp-harness.md](../registries/mcp-harness.md) — MCP quality
   bar
-- [../skills/learn-codebase/SKILL.md](../skills/learn-codebase/SKILL.md) —
+- [../.claude/skills/learn-codebase/SKILL.md](../.claude/skills/learn-codebase/SKILL.md) —
   the engine procedure

@@ -24,7 +24,7 @@ Nothing was silently abandoned.
 
 | OLD | v2 | Disposition |
 |---|---|---|
-| `agency/engines/profiling/procedures/init.md` | `skills/learn-codebase/SKILL.md` | Renamed and re-shaped (Phase 3 of plan); now an AMS-only skill that targets external repos |
+| `agency/engines/profiling/procedures/init.md` | `.claude/skills/learn-codebase/SKILL.md` | Renamed and re-shaped (Phase 3 of plan); now an AMS-only skill that targets external repos |
 | `agency/engines/profiling/procedures/rescan.md` | folded into `procedures/update.md` (preview path) | Consolidated |
 | `agency/engines/profiling/procedures/update.md` | folded into `procedures/update.md` (apply path) | Consolidated |
 | `agency/engines/profiling/procedures/define.md` | `procedures/define-specialist.md` | Renamed |
@@ -91,7 +91,7 @@ Nothing was silently abandoned.
 
 | OLD | v2 | Disposition |
 |---|---|---|
-| `init/SKILL.md` | `skills/learn-codebase/SKILL.md` | Renamed; AMS-only |
+| `init/SKILL.md` | `.claude/skills/learn-codebase/SKILL.md` | Renamed; AMS-only |
 | `connect/SKILL.md` | (deprecated; integration discovery folds into learn-codebase) + `templates/skills/jira-context/` (Jira specifics) | **Project-resolution role dropped** (cwd-based identity replaces it). Jira flow → `jira-context` sub-skill. Obsidian flow → **dropped entirely** |
 | `define/SKILL.md` | `templates/skills/define-specialist/SKILL.md` | Renamed for natural-language clarity |
 | `rescan/SKILL.md` | folded into `templates/skills/update/` (preview mode) | Consolidated |
@@ -148,7 +148,7 @@ These are new capabilities introduced in v2:
 - `registries/specialist-catalogue.json` — extracted from init's matching logic
 - `registries/build-deploy-signatures.json` — new (the build/deploy intelligence requirement)
 - `registries/mcp-harness.md` — new (MCP quality bar)
-- `skills/curate-mcp/` — new AMS-side maintenance skill
+- `.claude/skills/curate-mcp/` — new AMS-side maintenance skill
 - `docs/build-deploy.md` — new (build/deploy intelligence model)
 - Build/deploy intelligence in `learn-codebase` (Step 3) — **new requirement** per user
 

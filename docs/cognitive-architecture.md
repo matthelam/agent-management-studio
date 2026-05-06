@@ -245,7 +245,7 @@ behaviour up or down for the specific work item.
 
 - `harnesses/*.md` — the seven archetype profiles
 - `lenses/*.md` — the four concern lens overlays
-- `skills/learn-codebase/SKILL.md` — Step 4 (cognitive team proposal) and
+- `.claude/skills/learn-codebase/SKILL.md` — Step 4 (cognitive team proposal) and
   Step 4b (dynamic domain-skill generation)
 - `procedures/deliver-work.md` — Cognitive Team Mode section
 - `procedures/audit-work.md` — Step 2 (cognitive team resolution)

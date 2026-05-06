@@ -1,0 +1,15 @@
+# AMS is the AI tooling repository; the no-AI-footprint rule applies to target
+# repos AMS seeds, not to AMS itself. AMS's own .claude/skills/ is committed
+# (those are the AMS-only skills users discover when working in this repo).
+# Only ephemeral Claude Code session artifacts are excluded.
+
+# Claude Code session worktrees (per-session ephemeral)
+.claude/worktrees/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

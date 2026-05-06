@@ -69,9 +69,11 @@ See [docs/architecture.md](docs/architecture.md) for the full model.
 
 ```
 agent-management-studio/
-├── skills/                # AMS-only skills (run inside AMS)
-│   ├── learn-codebase/    # Bootstrap a target repo
-│   └── curate-mcp/        # Add/refresh MCP catalogue entries
+├── .claude/
+│   └── skills/            # AMS-only skills (Claude Code discovers these
+│       │                  # when you run Claude Code inside this repo)
+│       ├── learn-codebase/  # Bootstrap a target repo
+│       └── curate-mcp/      # Add/refresh MCP catalogue entries
 ├── templates/             # Materials seeded into target repos
 │   ├── skills/            # Seeded skill templates (7 skills)
 │   ├── universal/         # posture.md + standards/*
