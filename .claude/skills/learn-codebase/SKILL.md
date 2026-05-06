@@ -38,49 +38,98 @@ helper definitions are in `procedures/ams-audit-logging.md`.
 
 ### At invocation start (before Step 0)
 
-1. Generate a UUIDv4 as `RUN_ID`.
-2. Resolve `AMS_HOME` (the path to this AMS checkout — typically the cwd when
-   the skill is invoked).
-3. Compute `LOG_FILE=$AMS_HOME/logs/learn-codebase-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
-4. Ensure `$AMS_HOME/logs/` exists.
-5. Define the `emit_event` bash helper per `procedures/ams-audit-logging.md`.
-6. Emit `invocation_start` with payload:
-   ```json
-   { "args": ["<target-path>", "--strict|--reconfigure-integrations|..."],
-     "cwd": "<cwd>", "ams_version": "v2.1", "target": "<absolute target path>",
-     "run_log": "<LOG_FILE absolute path>" }
-   ```
-7. Emit `claude_mem_project_id_resolved` immediately after probing
-   claude-mem health (Step 0): payload `{ "auto_detected_id": "<from cwd>",
-   "target_basename": "<basename of target path>", "id_will_be_used":
-   "<which id learn-codebase will tag synthetic observations with>",
-   "reason": "..." }`. **This event surfaces project-ID misroute risk at run start.**
+**These are MANDATORY Bash tool calls — not suggestions. Run each block exactly
+as written. The log file is the audit trail; skipping any call makes the run
+opaque and triggers a quality failure on review.**
+
+Run the following Bash block first, before any other work:
+
+```bash
+# ── AMS run log bootstrap ─────────────────────────────────────────────────
+RUN_ID=$(python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || date +%s%N)
+AMS_HOME="$(pwd)"
+mkdir -p "$AMS_HOME/logs"
+LOG_FILE="$AMS_HOME/logs/learn-codebase-$(date -u +%Y-%m-%dT%H-%M-%S)-${RUN_ID}.jsonl"
+touch "$LOG_FILE"
+
+# emit_event helper — append one JSONL line to the log
+emit_event() {
+  local event="$1"; shift
+  local payload="$*"
+  printf '{"event":"%s","timestamp":"%s","run_id":"%s"%s}\n' \
+    "$event" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$RUN_ID" \
+    "${payload:+,${payload}}" >> "$LOG_FILE"
+}
+
+emit_event "invocation_start" \
+  "\"ams_version\":\"v2.1\",\"target\":\"$TARGET\",\"run_log\":\"$LOG_FILE\",\"cwd\":\"$AMS_HOME\""
+echo "RUN_ID=$RUN_ID  LOG=$LOG_FILE"
+```
+
+Save `RUN_ID`, `AMS_HOME`, `LOG_FILE`, and `emit_event` — they thread through
+every subsequent step. `TARGET` is the absolute path argument to this skill.
 
 ### At each Step boundary
 
-Emit `step_start` (with `step_id` matching the step number, `step_name`
-matching the heading) before doing the step's work; emit `step_end` after,
-with `outcome: "success" | "failure" | "skipped"` and `duration_ms`.
+**MANDATORY:** Before each step run this Bash block (substituting step_id and step_name):
+
+```bash
+emit_event "step_start" "\"step_id\":\"N\",\"step_name\":\"step-name\""
+STEP_START_MS=$(date +%s%3N)
+```
+
+After the step completes:
+
+```bash
+emit_event "step_end" "\"step_id\":\"N\",\"outcome\":\"success\",\"duration_ms\":$(($(date +%s%3N)-STEP_START_MS))"
+```
+
+On failure substitute `"outcome":"failure"` and include `"error":"<message>"`.
 
 ### At each substantive event within a step
 
-Use the event taxonomy in `procedures/ams-audit-logging.md`:
+**MANDATORY Bash calls** — run these inline, not at end of step:
 
-| When | Emit |
+```bash
+# Dependency probe (hard or soft)
+emit_event "dependency_probe" "\"dependency\":\"<name>\",\"outcome\":\"ok|unreachable|missing\",\"details\":\"<version or error>\""
+
+# File write to target .claude/
+emit_event "artifact_write" "\"path\":\"<relative path>\",\"bytes\":$(wc -c < <file>)"
+
+# File write skipped
+emit_event "artifact_skip" "\"path\":\"<relative path>\",\"reason\":\"<why>\""
+
+# Human gate (dev approval requested)
+emit_event "human_gate" "\"gate\":\"<description>\",\"decision\":\"<approved|modified|rejected>\""
+
+# claude-mem observation seeded
+emit_event "claude_mem_observation_seeded" "\"id\":\"<obs_id>\",\"project\":\"<project>\""
+
+# Non-fatal anomaly
+emit_event "warn" "\"message\":\"<what happened>\""
+
+# Fatal failure — always pair with invocation_end outcome:failure
+emit_event "error" "\"message\":\"<error>\",\"step\":\"<step_id>\""
+```
+
+Event taxonomy quick-reference:
+
+| When | Event type |
 |---|---|
-| Probing claude-mem / Bun / a CLI / an MCP | `dependency_probe` (and `dependency_remediation` if action taken) |
-| Writing any file to target's `.claude/` | `artifact_write` with path, bytes, sha256 |
-| Skipping a planned write | `artifact_skip` with reason |
-| Step 4 — proposing the cognitive team | `cognitive_team_proposed` then (after dev review) `cognitive_team_approved` |
-| Step 4b — generating each domain skill | `domain_skill_generated` per tech |
-| Step 6 — pattern detected | `pattern_detected` |
-| Step 7 — approach detected | `approach_detected` |
-| Step 8 — prescriptive rule generated | `prescriptive_rule_generated` |
-| Step 11 — `.git/info/exclude` write | `gitignore_update` with `entries_added` |
-| Step 12 — synthetic observation seeded | `claude_mem_observation_seeded` per observation |
-| Any human review point | `human_gate` |
-| Any non-fatal anomaly | `warn` |
-| Any fatal failure | `error` (with the original exception detail) |
+| Probing claude-mem / Bun / a CLI | `dependency_probe` |
+| Writing any file to target `.claude/` | `artifact_write` |
+| Skipping a planned write | `artifact_skip` |
+| Cognitive team proposal + approval | `cognitive_team_proposed`, `cognitive_team_approved` |
+| Each domain skill written | `domain_skill_generated` |
+| Pattern extracted | `pattern_detected` |
+| Approach extracted | `approach_detected` |
+| Prescriptive rule written | `prescriptive_rule_generated` |
+| `.git/info/exclude` written | `gitignore_update` |
+| claude-mem observation seeded | `claude_mem_observation_seeded` |
+| Human review gate | `human_gate` |
+| Non-fatal anomaly | `warn` |
+| Fatal failure | `error` |
 
 ### At invocation end
 
