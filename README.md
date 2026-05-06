@@ -162,6 +162,9 @@ See LICENSE.
 
 - [Architecture](docs/architecture.md) — The seed-and-run model, statute vs
   case-law, agent-harnessing pattern
+- [**Cognitive Architecture (v2)**](docs/cognitive-architecture.md) — How v2
+  separates cognitive harnesses, concern lenses, and domain skills. The
+  three-layer model
 - [Seeding](docs/seeding.md) — What gets seeded into target repos and how
 - [Migration map](docs/migration-map.md) — How OLD AMS harnesses migrated to
   v2
@@ -169,3 +172,12 @@ See LICENSE.
   identifies canonical build/deploy commands
 - [MCP quality harness](registries/mcp-harness.md) — Bar for adding MCPs to
   the curated registry
+
+## v2 directories at a glance
+
+- `harnesses/` — 7 cognitive archetype profiles (Empiricist, Specifist,
+  Pragmatist, Skeptic, Systematist, Architect, Synthesizer)
+- `lenses/` — 4 concern lens overlays (Security, Performance, Accessibility,
+  Devil's-Advocate)
+- `templates/specialists/` — **legacy reference** (v1 model); v2 uses
+  harnesses + dynamic domain skills

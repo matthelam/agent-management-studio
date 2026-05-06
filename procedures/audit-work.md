@@ -38,20 +38,96 @@ Surface the chosen scope to the dev for confirmation.
 
 ---
 
-## Step 2 — Agent harnessing
+## Step 2 — Cognitive team resolution (v2)
 
-@procedures/shared/agent-harnessing-pattern.md *(referenced from audit-work and
-deliver-work alike — see "Agent-harnessing pattern" in docs/architecture.md)*
+Same resolver as `deliver-work` (silent single + keyword triggers + custom
+override). Applied to audit-work with audit-specific defaults.
 
-1. Read seeded `config.json.assembly.agents`.
-2. Determine which agent's domain the audit/trace covers:
-   - Single-ticket: inferred from the ticket's affected files / Jira labels.
-   - Cross-ticket: inferred from the area named in the dev's prompt.
-3. Load the relevant agent's specialist + standards as the audit's primary lens.
-4. For cross-cutting audits spanning multiple agents' domains: sequentially
-   apply each affected agent's perspective; explicitly note perspective
-   switches in the report.
-5. Surface active perspective(s) to the dev.
+### Resolver
+
+```
+Default (no team-related keyword in prompt — 99% of work):
+  → SINGLE-AGENT mode
+  → harness = config.json.assembly.primary_harness_for_single_mode (typically `empiricist`)
+  → For audit-work specifically, project may override to `skeptic` for
+    cross-ticket adversarial audits via assembly.audit_primary_harness if set.
+  → no lenses applied (unless project's default_lenses are always-on)
+
+Keyword detected: "team" | "swarm" | "second opinion" | "multiple perspectives":
+  → DEFAULT-TEAM mode
+  → harnesses = config.json.assembly.cognitive_team
+  → For audit-work, the synthesizer is always added (or already present in
+    default_team) — it's the natural reconciler for parallel audits.
+  → lenses = config.json.assembly.default_lenses
+
+Keyword detected: "audit this from a security perspective" / "performance audit"
+| "accessibility audit" | similar lens-specific phrases:
+  → CUSTOM-TEAM mode (lens-driven)
+  → harness = primary_harness_for_single_mode OR skeptic
+  → lens = matched lens (security | performance | accessibility | devils_advocate)
+  → Often: skeptic + security; specifist + accessibility; architect + performance.
+
+Keyword detected: "let me define the team" | "audit this with [list]":
+  → CUSTOM-TEAM mode
+  → harnesses + lenses parsed from prompt
+```
+
+### Sub-agent dispatch
+
+Each harness in the resolved team is invoked as a Claude Code sub-agent via
+the `Agent` tool (same pattern as deliver-work).
+
+For each harness:
+1. Read `harnesses/<name>.md`.
+2. Apply concern lens overlays (concatenate to posture_anchor).
+3. Invoke `Agent` with the harness's `model` and the constructed posture.
+4. Pass shared context: scope (single or cross-ticket), evidence corpus
+   (claude-mem observations + work-item logs + filesystem reads), proximity-loaded
+   domain skills.
+
+### Mode-specific execution
+
+**SINGLE-AGENT mode:** Single harness performs Steps 3-5 (evidence gathering,
+analysis, reporting). No synthesis step — output is direct.
+
+**DEFAULT-TEAM mode:** Each harness performs Steps 3-4 in parallel against
+the same evidence corpus. A Synthesizer harness reconciles their outputs in
+Step 5:
+- Findings reinforced by ≥2 harnesses → high-confidence claim
+- Findings contradicted between harnesses → flagged for human review with
+  both views surfaced
+- Findings unique to one harness → reported with attribution to the
+  perspective ("the Skeptic identified..." / "the Architect noted...")
+
+**CUSTOM-TEAM mode:** As default-team but with the custom harness/lens set.
+
+### Audit-log the resolution
+
+```json
+{
+  "type": "cognitive_team_resolved",
+  "actor": "system",
+  "payload": {
+    "skill": "audit-work",
+    "scope": "single-ticket | cross-ticket | mixed",
+    "mode": "single | default | custom",
+    "trigger": "silent_default | keyword_match | dev_specified",
+    "harnesses": ["..."],
+    "lenses": ["..."],
+    "primary_harness": "...",
+    "synthesis_harness": "synthesizer | null"
+  }
+}
+```
+
+### Domain skills auto-load via proximity
+
+As the audit traverses files, generated domain skills auto-load (same
+mechanism as deliver-work). The harnesses use them as tech-specific
+knowledge layers during analysis.
+
+This separates HOW (harness) from WHAT IS (domain skill) for read-only
+investigation work.
 
 ---
 

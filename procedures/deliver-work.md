@@ -106,6 +106,108 @@ Schema reference: `behaviours/backlog/schemas.md`
 
 ---
 
+## Cognitive Team Mode (v2)
+
+After the backlog mode check and before Phase 1, resolve the cognitive team
+that will execute this work item. Three modes; selected by silent default
+or by keyword pattern-match against the dev's prompt.
+
+### Resolver
+
+```
+Default (no team-related keyword in prompt — 99% of work):
+  → SINGLE-AGENT mode
+  → harness = config.json.assembly.primary_harness_for_single_mode (typically `empiricist`)
+  → no lenses applied (unless project's default_lenses are always-on for the work)
+
+Keyword detected: "team" | "swarm" | "second opinion" | "multiple perspectives" | "get a team":
+  → DEFAULT-TEAM mode
+  → harnesses = config.json.assembly.cognitive_team
+  → lenses = config.json.assembly.default_lenses
+
+Keyword detected: "let me define the team" | "custom team" | "audit this with [list]" | "use [harness] and [harness]":
+  → CUSTOM-TEAM mode
+  → harnesses = parsed from prompt
+  → lenses = parsed from prompt OR project default_lenses
+```
+
+No DQ computation. No interactive prompting. Pattern-match the prompt; default
+to single agent silently.
+
+### Sub-agent dispatch
+
+Each cognitive harness is implemented as a Claude Code sub-agent via the
+`Agent` tool. For each harness in the resolved team:
+
+1. Read `harnesses/<name>.md` from the seeded `.claude/harnesses/` directory.
+2. Apply concern lens overlays per `lenses/<lens>.md` — concatenate the
+   lens's `prompt overlay` to the harness's `pillar_implementation.pillar_1_input_vector.posture_anchor`.
+3. Invoke `Agent` with:
+   - `model` = harness's `model` field (claude-sonnet or claude-opus)
+   - `prompt` = constructed posture_anchor (harness + lens overlays)
+   - `description` = "<harness-name> harness for <ticket-id>"
+4. Pass shared context: ticket details, clarity report, applicable patterns
+   slice, applicable approaches slice, applicable domain skills (proximity-loaded).
+
+### Mode-specific phase mapping
+
+**SINGLE-AGENT mode:** Single harness executes Phases 1-5 as defined below.
+Self-Assessment (Phase 2) collapses into one declaration. Mode is silent —
+no team-related output to dev unless they ask.
+
+**DEFAULT-TEAM mode:** Each harness executes Phases 2-5 in parallel; their
+outputs feed into a synthesis step (Synthesizer harness on Opus) at each phase
+boundary. Phases run as:
+
+- Phase 2 (Self-Assess) — each harness self-assesses Lead/Support/Observe;
+  the synthesizer reconciles to determine which harness is Lead.
+- Phase 3 (Plan) — Lead harness drafts; Support harnesses critique;
+  synthesizer reconciles into single plan.
+- Phase 4 (Execute) — Lead executes; Support harnesses review changes
+  inline (post-tool-use observation); synthesizer reconciles only at phase
+  boundary, not per tool call (cost control).
+- Phase 5 (Final Verify) — each harness independently verifies against ACs;
+  synthesizer reconciles into single per-AC pass/fail with attributed
+  evidence.
+
+**CUSTOM-TEAM mode:** Same as default-team but with custom harness/lens set.
+Dev may also specify altitude override per harness for this work item.
+
+### Audit-log the mode resolution
+
+```json
+{
+  "type": "cognitive_team_resolved",
+  "actor": "system",
+  "payload": {
+    "mode": "single | default | custom",
+    "trigger": "silent_default | keyword_match | dev_specified",
+    "matched_keyword": "team | swarm | etc.",
+    "harnesses": ["empiricist"] | [...team list],
+    "lenses": [],
+    "primary_harness": "empiricist",
+    "synthesis_harness": "synthesizer | null"
+  }
+}
+```
+
+### Domain skills auto-load via proximity (always-on, regardless of team mode)
+
+Independent of harness team selection: as the work touches files, generated
+domain skills (per-tech, dynamic — see learn-codebase) auto-load via
+proximity triggers in their descriptions. The Lead harness uses these as
+its tech-specific knowledge layer regardless of which harness it is.
+
+Example: Lead harness is Empiricist; work is in `packages/ui-sitecore/`. The
+seeded `sitecore-knowledge` skill triggers on proximity, providing
+Sitecore-specific patterns / GUARD RAILS / CLI references / doc-fallback
+to the Empiricist's posture.
+
+This means: harness = HOW; domain skill = WHAT IS. Both layer on top of
+posture + standards (universal).
+
+---
+
 ## Phase 1 — Brief
 
 ### Capture
