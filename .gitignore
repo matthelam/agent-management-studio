@@ -6,6 +6,10 @@
 # Claude Code session worktrees (per-session ephemeral)
 .claude/worktrees/
 
+# AMS-side run logs (per-skill JSONL — debugging artifacts, not source)
+# See procedures/ams-audit-logging.md for schema
+logs/*.jsonl
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

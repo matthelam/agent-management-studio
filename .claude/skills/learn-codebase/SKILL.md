@@ -30,20 +30,152 @@ learn-codebase <absolute-path-to-target-repo> [--strict] [--reconfigure-integrat
 
 ---
 
+## Run logging (mandatory, threads through every step)
+
+**Every learn-codebase invocation produces a structured run log** written to
+`<ams-root>/logs/learn-codebase-<iso-timestamp>-<run-id>.jsonl`. Schema and
+helper definitions are in `procedures/ams-audit-logging.md`.
+
+### At invocation start (before Step 0)
+
+1. Generate a UUIDv4 as `RUN_ID`.
+2. Resolve `AMS_HOME` (the path to this AMS checkout — typically the cwd when
+   the skill is invoked).
+3. Compute `LOG_FILE=$AMS_HOME/logs/learn-codebase-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
+4. Ensure `$AMS_HOME/logs/` exists.
+5. Define the `emit_event` bash helper per `procedures/ams-audit-logging.md`.
+6. Emit `invocation_start` with payload:
+   ```json
+   { "args": ["<target-path>", "--strict|--reconfigure-integrations|..."],
+     "cwd": "<cwd>", "ams_version": "v2.1", "target": "<absolute target path>",
+     "run_log": "<LOG_FILE absolute path>" }
+   ```
+7. Emit `claude_mem_project_id_resolved` immediately after probing
+   claude-mem health (Step 0): payload `{ "auto_detected_id": "<from cwd>",
+   "target_basename": "<basename of target path>", "id_will_be_used":
+   "<which id learn-codebase will tag synthetic observations with>",
+   "reason": "..." }`. **This event surfaces project-ID misroute risk at run start.**
+
+### At each Step boundary
+
+Emit `step_start` (with `step_id` matching the step number, `step_name`
+matching the heading) before doing the step's work; emit `step_end` after,
+with `outcome: "success" | "failure" | "skipped"` and `duration_ms`.
+
+### At each substantive event within a step
+
+Use the event taxonomy in `procedures/ams-audit-logging.md`:
+
+| When | Emit |
+|---|---|
+| Probing claude-mem / Bun / a CLI / an MCP | `dependency_probe` (and `dependency_remediation` if action taken) |
+| Writing any file to target's `.claude/` | `artifact_write` with path, bytes, sha256 |
+| Skipping a planned write | `artifact_skip` with reason |
+| Step 4 — proposing the cognitive team | `cognitive_team_proposed` then (after dev review) `cognitive_team_approved` |
+| Step 4b — generating each domain skill | `domain_skill_generated` per tech |
+| Step 6 — pattern detected | `pattern_detected` |
+| Step 7 — approach detected | `approach_detected` |
+| Step 8 — prescriptive rule generated | `prescriptive_rule_generated` |
+| Step 11 — `.git/info/exclude` write | `gitignore_update` with `entries_added` |
+| Step 12 — synthetic observation seeded | `claude_mem_observation_seeded` per observation |
+| Any human review point | `human_gate` |
+| Any non-fatal anomaly | `warn` |
+| Any fatal failure | `error` (with the original exception detail) |
+
+### At invocation end
+
+Emit `invocation_end` with:
+```json
+{ "outcome": "success" | "failure" | "stopped",
+  "duration_ms": <total>,
+  "summary": {
+    "steps_completed": <n>, "steps_skipped": <n>,
+    "artifacts_written": <n>, "patterns_detected": <n>,
+    "approaches_detected": <n>, "guard_rails_extracted": <n>,
+    "prescriptive_rules_generated": <n>,
+    "synthetic_observations_seeded": <n>,
+    "claude_mem_project_id_used": "<id>"
+  }
+}
+```
+
+### Error path
+
+On any unhandled error, emit `error` with full context, then `invocation_end`
+with `outcome: "failure"`. **Never let an exception propagate without a
+matching log entry** — that's the failure mode the smoke test surfaced
+(silent stalling).
+
+### Log retention
+
+At invocation start, prune `$AMS_HOME/logs/learn-codebase-*.jsonl` files older
+than 7 days OR beyond the most-recent 50 (whichever keeps more), per
+`procedures/ams-audit-logging.md`.
+
+---
+
 ## Step 0 — Preflight
 
-1. **Verify claude-mem worker reachable.** `curl -sf
-   http://127.0.0.1:37777/api/health`. If unreachable: surface remediation
-   (`npx claude-mem start`) and stop.
-2. **Verify Bun installed.** Required by claude-mem; check via `bun --version`.
-3. **Verify target path exists** and is a directory containing a `.git/`
-   subdirectory.
-4. **Check for existing seed.** If `<target>/.claude/config.json` exists with
+Emit `step_start` with `step_id: "0"`, `step_name: "preflight"`.
+
+Each probe below emits a `dependency_probe` event with `dependency`,
+`outcome`, `details`. **Any failed hard probe halts execution**: emit
+`error`, `invocation_end` with `outcome: "failure"`, and stop. Do NOT
+proceed with a partial seed — that's the failure mode the smoke test exposed.
+
+1. **Hard: claude-mem worker reachable.** `curl -sf --max-time 5
+   http://127.0.0.1:37777/api/health`. (Note: 5-second timeout, not 2 — worker
+   under load may take longer to respond.) On unreachable:
+   - Emit `dependency_probe` with `outcome: "unreachable"` and the
+     remediation hint `npx claude-mem start`.
+   - Emit `error` and stop. **Do NOT continue.** This is the issue-4 fix —
+     learn-codebase REQUIRES claude-mem; soft-fail is wrong here.
+2. **Hard: Bun installed.** `bun --version`. On missing: emit `error` and stop.
+3. **Hard: target path is a git repo.** Verify directory exists and contains
+   `.git/`. On failure: emit `error` and stop.
+4. **Resolve and log claude-mem project IDs (the v2.1 fix for issue 2).**
+   - Probe claude-mem's project resolution from this cwd: hit `/api/search`
+     with a no-op query and inspect what project tag it returns, OR read
+     `~/.claude-mem/observer-sessions/` for the most recent session's
+     project field.
+   - Compute `target_basename = basename(<target-path>)` (e.g.
+     `aceik-sandpit-xmc`).
+   - Decide which project ID to use for synthetic observations in Step 12 —
+     **always `target_basename`**, never the auto-detected AMS-side ID.
+   - Emit `claude_mem_project_id_resolved` with full payload as defined in
+     the Run logging section.
+5. **`cd` into target before any further work.** This is the v2.1 fix for the
+   project-ID misroute: by changing cwd into the target before the file sweep,
+   claude-mem's auto-detection picks up the target's basename. (If `cd`
+   into target is impractical for the AMS skill execution model, alternative:
+   set `CLAUDE_MEM_SKIP_TOOLS += Read` for the sweep duration and emit one
+   bulk synthetic observation in Step 12 with explicit `project: "<target_basename>"`.)
+6. **Check for existing seed.** If `<target>/.claude/config.json` exists with
    `environment_snapshot`, route to update-or-rebuild prompt:
    - **(a) Update** — invoke `update` skill in the target instead of full
      rebuild. Preserves existing assembly + manual edits.
    - **(b) Full rebuild** — proceed with this procedure. Warn that existing
      prescriptive artifacts will be replaced.
+   - Emit `human_gate` with the decision.
+
+Emit `step_end` for Step 0 before proceeding.
+
+### Step 0.5 — Early gitignore protection (the v2.1 fix for issue 1)
+
+**Move the `.git/info/exclude` write to here, before any file is seeded.**
+
+Originally Step 11; promoted to Step 0.5 because partial-failure scenarios
+must not leave a window where seeded `.claude/` files are git-visible.
+
+1. Append `.claude/` (or finer-grained subdirs per
+   `assembly.gitignore_granularity` if set) to
+   `<target>/.git/info/exclude`. Idempotent — check for existing entry first.
+2. Emit `gitignore_update` with `target`, `entries_added`,
+   `entries_already_present`.
+3. **NEVER touch the tracked `.gitignore`.** That's the no-AI-footprint rule.
+
+If this step fails (permissions, not a git repo, etc.): emit `error` and stop.
+The seed must not proceed if the protection layer can't be established.
 
 ---
 

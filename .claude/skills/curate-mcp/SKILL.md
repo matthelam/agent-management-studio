@@ -26,6 +26,54 @@ curate-mcp <candidate>
 
 ---
 
+## Run logging (mandatory)
+
+**Every curate-mcp invocation produces a structured run log** at
+`<ams-root>/logs/curate-mcp-<iso-timestamp>-<run-id>.jsonl`. Schema in
+`procedures/ams-audit-logging.md`.
+
+### At invocation start
+
+1. Generate `RUN_ID` (UUIDv4).
+2. Resolve `AMS_HOME`.
+3. Compute `LOG_FILE=$AMS_HOME/logs/curate-mcp-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
+4. Define `emit_event` per `procedures/ams-audit-logging.md`.
+5. Emit `invocation_start` with payload `{ "candidate": "<candidate>",
+   "ams_version": "v2.1", "run_log": "<LOG_FILE>" }`.
+
+### At each Step boundary
+
+Emit `step_start` and `step_end` with `step_id` matching the step number
+and `step_name` matching the heading.
+
+### Per-event emissions inside steps
+
+| When | Emit |
+|---|---|
+| Step 1 — each automated harness check (last commit, license, etc.) | `harness_check` with `dimension`, `outcome`, `score`, `notes` |
+| Step 2 — fetched the candidate's tool list | `mcp_tool_list_fetched` with `tool_count` |
+| Step 3 — each manual curator-walked check | `manual_harness_check` with `dimension`, `outcome`, `curator_notes` |
+| Step 4 — verdict computed | `harness_verdict` with the full per-dimension score table |
+| Step 5 — entry written to `mcp-catalogue.json` | `artifact_write` with the path, plus `mcp_catalogued` with `mcp_id`, `vendor`, `verdict`, `crud_methods_classified` |
+| Step 5 — `tech-mcp-map.json` updated | `artifact_write` for the path |
+| Step 5 — CRUD entries added to `tool-crud-profile.json` | `artifact_write` plus per-method count |
+| On rejection (verdict = rejected) | `mcp_rejected` with `mcp_id`, `reason` |
+| Step 6 — reverse-PR suggestion | `human_gate` with `decision` |
+| Any human review point | `human_gate` |
+| Any anomaly | `warn` or `error` |
+
+### At invocation end
+
+Emit `invocation_end` with `outcome`, `duration_ms`, `summary: { mcp_id,
+verdict, methods_classified, registries_updated: [...] }`.
+
+### Log retention
+
+At invocation start, prune `$AMS_HOME/logs/curate-mcp-*.jsonl` older than
+7 days OR beyond the most-recent 50 (whichever keeps more).
+
+---
+
 ## Step 1 — Automated harness checks
 
 Run all of these without human intervention:
