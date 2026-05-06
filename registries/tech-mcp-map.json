@@ -1,0 +1,128 @@
+{
+  "_comment": "Tech key → recommended MCPs / CLIs / skills / specialists. Initial population covers the user's known stack. Extend via curate-mcp for new tech.",
+  "_version": "1.0.0",
+  "_updated": "2026-05-06",
+  "technologies": {
+    "next.js": {
+      "mcps": ["next-devtools"],
+      "clis": ["next"],
+      "specialists": ["frontend-dev"],
+      "skills": []
+    },
+    "react": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "skills": []
+    },
+    "tailwindcss": {
+      "mcps": [],
+      "clis": ["tailwindcss"],
+      "specialists": ["frontend-dev"],
+      "skills": []
+    },
+    "radix-ui": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev", "accessibility-audit"],
+      "skills": []
+    },
+    "class-variance-authority": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "skills": []
+    },
+    "vercel": {
+      "mcps": ["vercel"],
+      "clis": ["vercel"],
+      "specialists": ["docker-ops"],
+      "skills": []
+    },
+    "azure": {
+      "mcps": ["azure"],
+      "clis": ["az"],
+      "specialists": ["docker-ops", "security-audit"],
+      "skills": []
+    },
+    "atlassian-jira": {
+      "mcps": ["atlassian"],
+      "clis": [],
+      "specialists": [],
+      "skills": ["jira-context"]
+    },
+    "sitecore-xmc": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev", "content-author"],
+      "skills": []
+    },
+    "sitecore-content-sdk": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev"],
+      "skills": []
+    },
+    "sitecore-jss": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["cms-wrapper-dev", "content-author"],
+      "skills": []
+    },
+    "turborepo": {
+      "mcps": [],
+      "clis": ["turbo"],
+      "specialists": [],
+      "skills": []
+    },
+    "storybook": {
+      "mcps": [],
+      "clis": ["storybook"],
+      "specialists": ["storybook-dev"],
+      "skills": []
+    },
+    "chromatic": {
+      "mcps": [],
+      "clis": ["chromatic"],
+      "specialists": ["storybook-dev"],
+      "skills": []
+    },
+    "msw": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["storybook-dev", "frontend-dev"],
+      "skills": []
+    },
+    "playwright": {
+      "mcps": ["playwright"],
+      "clis": ["playwright"],
+      "specialists": ["frontend-dev"],
+      "skills": []
+    },
+    "docker": {
+      "mcps": [],
+      "clis": ["docker"],
+      "specialists": ["docker-ops"],
+      "skills": []
+    },
+    "dotnet": {
+      "mcps": [],
+      "clis": ["dotnet"],
+      "specialists": ["backend-dev", "code-review"],
+      "skills": []
+    },
+    "github-actions": {
+      "mcps": [],
+      "clis": ["gh"],
+      "specialists": ["docker-ops"],
+      "skills": []
+    },
+    "obsidian": {
+      "_status": "deprecated_in_v1",
+      "mcps": [],
+      "clis": [],
+      "specialists": [],
+      "skills": []
+    }
+  }
+}
