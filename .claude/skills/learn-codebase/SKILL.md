@@ -432,12 +432,14 @@ to this project.
 For each tech detected (Sitecore, Next.js, Tailwind+Radix, Turborepo, etc.):
 
 1. **Pull the registry slice:**
-   - From `registries/tech-mcp-map.json`: MCPs, CLIs, specialists,
-     `official_docs_url`
-   - From `registries/mcp-catalogue.json`: detailed MCP metadata for any
-     MCPs in the slice
+   - From `registries/tech-tool-map.json`: MCPs, skill packs, agent configs,
+     CLIs, specialists, `official_docs_url`
+   - From `registries/tool-catalogue.json`: detailed metadata for any tools
+     in the slice (MCP methods, skill pack ingestion path, etc.)
+   - From `registries/skill-pack-registry.json`: per-skill ingestion status
+     for any skill packs in the slice — check version alignment before copy
    - From `registries/tool-crud-profile.json`: CRUD-truthfulness for the
-     slice's tools
+     slice's MCP tools
 
 2. **Extract the project-specific slice from analysis:**
    - GUARD RAILS in `approaches.md` mentioning this tech
@@ -455,7 +457,7 @@ description: |
   Use when working in <file-patterns>, when editing files that import
   <tech-imports>, or when the user mentions <tech-keywords>.
   Provides <project-name>'s specific patterns, conventions, GUARD RAILS,
-  CLI references, MCP methods, and doc fallback for <tech>.
+  CLI references, tool references, and doc fallback for <tech>.
 ---
 
 # <tech> in <project-name>
@@ -469,8 +471,11 @@ description: |
 ## CLI commands used in this project
 <canonical commands from build-deploy.md slice + project-specific usage>
 
-## MCP methods (when applicable)
-<curated list from mcp-catalogue with concrete invocation examples>
+## Tools available for this technology
+<For each tool in tech-tool-map.json slice:>
+- **MCPs**: list with key methods and CRUD class from tool-crud-profile.json
+- **Skill packs**: list with ingestion path from skill-pack-registry.json
+  (only list skills already ingested into this project's .claude/skills/)
 
 ## Doc fallback
 If uncertain about implementation, search the official documentation at
@@ -631,7 +636,7 @@ Read `templates/tool-safety/SKILL.md.template`. Substitute:
 - `{{PROJECT_NAME}}` — target's name
 - `{{TIMESTAMP}}` — ISO-8601 now
 - `{{TOOL_PROFILE_VERSION}}` — version of `tool-crud-profile.json`
-- `{{TECH_MAP_VERSION}}` — version of `tech-mcp-map.json`
+- `{{TECH_MAP_VERSION}}` — version of `tech-tool-map.json`
 - `{{TOOL_CRUD_TABLE}}` — markdown table of CRUD profiles for tools matched
   to this project's stack (from `tool-crud-profile.json`)
 - `{{VERSION_CHECKS}}` — version-check commands for tools in stack

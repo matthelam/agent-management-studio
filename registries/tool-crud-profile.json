@@ -1,5 +1,5 @@
 {
-  "_comment": "Per-tool/per-method CRUD truthfulness data. Drives the per-project tool-safety skill. Initial v1 entries cover common CLIs + a few MCP examples. Populated by curate-mcp; grows with curation.",
+  "_comment": "Per-tool/per-method CRUD truthfulness data. Drives the per-project tool-safety skill. Initial v1 entries cover common CLIs + a few MCP examples. Populated by curate-tool; grows with curation.",
   "_version": "1.0.0",
   "_updated": "2026-05-06",
   "_classes": {

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/sitecore-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/nextjs-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/tailwind-shadcn-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/mantine-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/monorepo-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/tailwind-radix-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/monorepo-turbo-knowledge\")",
+      "Bash(mkdir -p \"C:/Repositories/aceik-sandpit-xmc/.claude/skills/storybook-chromatic-knowledge\")"
+    ]
+  }
+}

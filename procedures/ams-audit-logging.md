@@ -1,6 +1,6 @@
 # AMS-Side Audit Logging
 
-Every AMS-only skill (`learn-codebase`, `curate-mcp`, future skills) emits a
+Every AMS-only skill (`learn-codebase`, `curate-tool`, future skills) emits a
 structured run log to `<ams-root>/logs/<skill>-<run-id>.jsonl`.
 
 This is **distinct** from target-side audit logging (`procedures/audit-logging.md`,
@@ -30,7 +30,7 @@ A bug visible in the log is a debuggable bug. A bug visible only in
 ```
 <ams-root>/logs/
   learn-codebase-2026-05-06T20-32-15-<run-id>.jsonl
-  curate-mcp-2026-05-06T18-04-22-<run-id>.jsonl
+  curate-tool-2026-05-06T18-04-22-<run-id>.jsonl
 ```
 
 - One file per skill invocation.
@@ -114,14 +114,16 @@ Optional fields per event type:
 | `claude_mem_observation_failed` | When a synthetic observation POST fails | `observation_type`, `error`, `retry_attempted` |
 | `claude_mem_project_id_resolved` | Once at start, after probing | `auto_detected_id`, `target_basename`, `id_will_be_used`, `reason` |
 
-### Curate-mcp specific
+### Curate-tool specific
 
 | `event_type` | When emitted | Required payload |
 |---|---|---|
 | `harness_check` | Each automated harness check | `dimension`, `outcome`, `score`, `notes` |
 | `manual_harness_check` | Each curator-walked check | `dimension`, `outcome`, `curator_notes` |
-| `mcp_catalogued` | On approval | `mcp_id`, `vendor`, `verdict`, `crud_methods_classified` |
-| `mcp_rejected` | On rejection | `mcp_id`, `reason` |
+| `gap_identified` | Gap analysis finds a coverage gap | `gap_description`, `gap_for` (tool_id with the gap) |
+| `gap_candidate_found` | A complementary tool found to close a gap | `candidate`, `action: "curate_now" \| "queue"` |
+| `tool_catalogued` | On approval | `tool_id`, `type: "mcp" \| "skill-pack" \| "agent-config"`, `vendor`, `verdict`, `crud_methods_classified` |
+| `tool_rejected` | On rejection | `tool_id`, `reason` |
 
 ### Generic
 

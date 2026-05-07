@@ -127,7 +127,7 @@ Each domain skill bundles:
 - Project-specific patterns and approaches slice (relevant to the tech)
 - Project-specific GUARD RAILS for the tech
 - CLI references (commands actually used in this project)
-- MCP references (slice of `mcp-catalogue.json` matching this tech)
+- Tool references (slice of `tool-catalogue.json` matching this tech — MCPs, relevant skill packs)
 - Doc-fallback rule with `official_docs_url`
 
 Triggered by **proximity** — Claude reaches for the skill when:
