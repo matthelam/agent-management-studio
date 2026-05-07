@@ -1,9 +1,9 @@
 ---
-name: curate-tool
+name: curate-tools
 description: AMS maintenance skill for adding or refreshing entries in the tool catalogue. Accepts any tool candidate — MCP server (npm package, GitHub repo, hosted URL), skill pack (GitHub repo), or agent config — runs harness checks against tool-harness.md, performs mandatory gap analysis (§Gap), and writes approved entries to tool-catalogue.json, tech-tool-map.json, skill-pack-registry.json (skill packs), and tool-crud-profile.json (MCPs). Used by AMS curators, not seeded into target repos.
 ---
 
-# curate-tool
+# curate-tools
 
 AMS-only maintenance skill. Keeps `registries/tool-catalogue.json`,
 `registries/tech-tool-map.json`, `registries/skill-pack-registry.json`, and
@@ -16,7 +16,7 @@ The harness this skill enforces is in `registries/tool-harness.md`.
 ## Invocation
 
 ```
-curate-tool <candidate> [--type mcp|skill-pack|agent-config]
+curate-tools <candidate> [--type mcp|skill-pack|agent-config]
 ```
 
 `<candidate>` can be:
@@ -31,14 +31,14 @@ curate-tool <candidate> [--type mcp|skill-pack|agent-config]
 
 ## Run logging (mandatory)
 
-**Every curate-tool invocation produces a structured run log** at
-`<ams-root>/logs/curate-tool-<iso-timestamp>-<run-id>.jsonl`.
+**Every curate-tools invocation produces a structured run log** at
+`<ams-root>/logs/curate-tools-<iso-timestamp>-<run-id>.jsonl`.
 
 ### At invocation start
 
 1. Generate `RUN_ID` (UUIDv4).
 2. Resolve `AMS_HOME`.
-3. Compute `LOG_FILE=$AMS_HOME/logs/curate-tool-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
+3. Compute `LOG_FILE=$AMS_HOME/logs/curate-tools-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
 4. Emit `invocation_start` with `{ "candidate": "<candidate>", "type": "<type>", "ams_version": "v2.2", "run_log": "<LOG_FILE>" }`.
 
 ### At each Step boundary
@@ -66,7 +66,7 @@ Emit `invocation_end` with `outcome`, `duration_ms`, `summary: { tool_id, type, 
 
 ### Log retention
 
-Prune `$AMS_HOME/logs/curate-tool-*.jsonl` older than 7 days OR beyond the most-recent 50.
+Prune `$AMS_HOME/logs/curate-tools-*.jsonl` older than 7 days OR beyond the most-recent 50.
 
 ---
 
@@ -157,7 +157,7 @@ informs AI but doesn't fully constrain it.
    - Check `tool-catalogue.json` for existing approved tools covering the gap
    - Search npm / GitHub for candidates if none exists
 3. If a candidate is found:
-   - If viable (passes automated checks): initiate curation immediately (`curate-tool <candidate>`)
+   - If viable (passes automated checks): initiate curation immediately (`curate-tools <candidate>`)
    - If deferred: add to catalogue with `gap_for: "<tool-id>"` and queue for next curation run
 4. If no tool exists: note the gap in `harness.gaps` so learn-codebase generates a compensating domain skill
 

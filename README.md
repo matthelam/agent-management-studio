@@ -73,7 +73,7 @@ agent-management-studio/
 │   └── skills/            # AMS-only skills (Claude Code discovers these
 │       │                  # when you run Claude Code inside this repo)
 │       ├── learn-codebase/  # Bootstrap a target repo
-│       └── curate-tool/     # Add/refresh tool catalogue entries (MCPs, skill packs, agent configs)
+│       └── curate-tools/     # Add/refresh tool catalogue entries (MCPs, skill packs, agent configs)
 ├── templates/             # Materials seeded into target repos
 │   ├── skills/            # Seeded skill templates (7 skills)
 │   ├── universal/         # posture.md + standards/*

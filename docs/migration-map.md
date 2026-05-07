@@ -149,7 +149,7 @@ These are new capabilities introduced in v2:
 - `registries/specialist-catalogue.json` — extracted from init's matching logic
 - `registries/build-deploy-signatures.json` — new (the build/deploy intelligence requirement)
 - `registries/tool-harness.md` — new (v2.2; replaces mcp-harness.md; harness-strength-first evaluation)
-- `.claude/skills/curate-tool/` — new AMS-side maintenance skill (v2.2; replaces curate-mcp; handles MCPs, skill packs, and agent configs)
+- `.claude/skills/curate-tools/` — new AMS-side maintenance skill (v2.2; replaces curate-mcp; handles MCPs, skill packs, and agent configs)
 - `docs/build-deploy.md` — new (build/deploy intelligence model)
 - Build/deploy intelligence in `learn-codebase` (Step 3) — **new requirement** per user
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "AMS curated tool registry. Covers MCPs (live system access), skill packs (domain knowledge), and agent configs (cognitive shape). Populated by curate-tool. Initial scaffold entries migrated from mcp-catalogue.json v1.",
+  "_comment": "AMS curated tool registry. Covers MCPs (live system access), skill packs (domain knowledge), and agent configs (cognitive shape). Populated by curate-tools. Initial scaffold entries migrated from mcp-catalogue.json v1.",
   "_version": "2.0.0",
   "_updated": "2026-05-07",
   "_types": {

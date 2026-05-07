@@ -1,7 +1,7 @@
 # Tool Quality Harness
 
 The criteria any tool candidate must meet before being added to AMS's curated
-registry. Applied by the `curate-tool` skill.
+registry. Applied by the `curate-tools` skill.
 
 A "tool" is any artefact that harnesses AI development: MCPs (live system
 access), skill packs (domain knowledge), or agent configs (cognitive shape).

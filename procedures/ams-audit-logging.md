@@ -1,6 +1,6 @@
 # AMS-Side Audit Logging
 
-Every AMS-only skill (`learn-codebase`, `curate-tool`, future skills) emits a
+Every AMS-only skill (`learn-codebase`, `curate-tools`, future skills) emits a
 structured run log to `<ams-root>/logs/<skill>-<run-id>.jsonl`.
 
 This is **distinct** from target-side audit logging (`procedures/audit-logging.md`,
@@ -30,7 +30,7 @@ A bug visible in the log is a debuggable bug. A bug visible only in
 ```
 <ams-root>/logs/
   learn-codebase-2026-05-06T20-32-15-<run-id>.jsonl
-  curate-tool-2026-05-06T18-04-22-<run-id>.jsonl
+  curate-tools-2026-05-06T18-04-22-<run-id>.jsonl
 ```
 
 - One file per skill invocation.
