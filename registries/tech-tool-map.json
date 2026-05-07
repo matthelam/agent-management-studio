@@ -110,23 +110,25 @@
       "official_docs_url": "https://www.storyblok.com/docs"
     },
     "sitecore-xmc": {
-      "mcps": ["sitecore-knowledge-mcp"],
+      "mcps": ["sitecore-server-mcp"],
       "skill_packs": [],
       "agent_configs": [],
       "clis": ["sitecore"],
       "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev", "content-author"],
-      "official_docs_url": "https://doc.sitecore.com/xmc"
+      "official_docs_url": "https://doc.sitecore.com/xmc",
+      "_note": "sitecore-server-mcp covers XMC GraphQL, Item Service, PowerShell, Presentation APIs. JS SDK patterns (@sitecore-content-sdk/*) need compensating domain skill from learn-codebase."
     },
     "sitecore-content-sdk": {
-      "mcps": ["sitecore-knowledge-mcp"],
+      "mcps": ["sitecore-server-mcp"],
       "skill_packs": [],
       "agent_configs": [],
       "clis": ["sitecore"],
       "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev"],
-      "official_docs_url": "https://doc.sitecore.com/xmc/en/developers/content-sdk"
+      "official_docs_url": "https://doc.sitecore.com/xmc/en/developers/content-sdk",
+      "_note": "sitecore-server-mcp provides server-side access. Client-side SDK composition patterns need a sitecore-xmc-knowledge domain skill."
     },
     "sitecore-jss": {
-      "mcps": ["sitecore-knowledge-mcp"],
+      "mcps": ["sitecore-server-mcp"],
       "skill_packs": [],
       "agent_configs": [],
       "clis": ["sitecore"],
@@ -139,15 +141,28 @@
       "agent_configs": [],
       "clis": ["turbo"],
       "specialists": [],
-      "official_docs_url": "https://turborepo.com/docs"
+      "official_docs_url": "https://turborepo.com/docs",
+      "_compensating_skill_required": true,
+      "_note": "No viable MCP — turbo-docs-mcp-server (community) last commit Jan 2025, stale-fail (>365 days). learn-codebase must generate turborepo-knowledge domain skill covering pipeline definitions, remote cache, workspace task patterns for this monorepo."
+    },
+    "tailwindcss-v4": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["tailwindcss"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://tailwindcss.com/docs/v4-beta",
+      "_compensating_skill_required": true,
+      "_note": "No official MCP from Tailwind Labs. Community MCPs (tailwindcss-mcp, tailwindcss-mcp-server) last updated Feb–Mar 2025 — stale-warning. Neither covers v4 breaking changes. learn-codebase must generate tailwindcss-v4-knowledge covering: CSS-first config (@theme in CSS, no tailwind.config.js), oklch color palette, container queries, @utility, @variant."
     },
     "storybook": {
-      "mcps": [],
+      "mcps": ["storybook-mcp", "storybook-addon-mcp", "playwright-mcp"],
       "skill_packs": [],
       "agent_configs": [],
       "clis": ["storybook"],
       "specialists": ["storybook-dev"],
-      "official_docs_url": "https://storybook.js.org/docs"
+      "official_docs_url": "https://storybook.js.org/docs",
+      "_note": "storybook-mcp = component knowledge; storybook-addon-mcp = test execution loop (run-story-tests); playwright-mcp = interactive/DOM assertions on localhost:6006"
     },
     "chromatic": {
       "mcps": [],
@@ -155,7 +170,8 @@
       "agent_configs": [],
       "clis": ["chromatic"],
       "specialists": ["storybook-dev"],
-      "official_docs_url": "https://www.chromatic.com/docs"
+      "official_docs_url": "https://www.chromatic.com/docs",
+      "_note": "No MCP available for Chromatic — cloud-based visual regression, CLI-only. AI verification via storybook-addon-mcp (run-story-tests) is the primary loop; Chromatic runs in CI. No compensating domain skill needed — Chromatic is opaque to AI during development."
     },
     "msw": {
       "mcps": [],
@@ -163,7 +179,9 @@
       "agent_configs": [],
       "clis": [],
       "specialists": ["storybook-dev", "frontend-dev"],
-      "official_docs_url": "https://mswjs.io/docs"
+      "official_docs_url": "https://mswjs.io/docs",
+      "_compensating_skill_required": true,
+      "_note": "msw-mcp (community, JasonBoy) approaching stale-warning (84 days as of May 2026) — rejected. learn-codebase must generate msw-knowledge domain skill covering: http.get/post/put/delete handler patterns, GraphQL handlers, passthrough/bypass, onUnhandledRequest, integration with Storybook (msw-storybook-addon). Project uses msw@^2.11.6."
     },
     "playwright": {
       "mcps": ["playwright-mcp"],
@@ -172,6 +190,25 @@
       "clis": ["playwright"],
       "specialists": ["frontend-dev"],
       "official_docs_url": "https://playwright.dev/docs/intro"
+    },
+    "eslint": {
+      "mcps": ["eslint-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["eslint"],
+      "specialists": ["code-review"],
+      "official_docs_url": "https://eslint.org/docs/latest",
+      "_note": "eslint-mcp enables AI lint→self-correct loop. Supports flat config (v9+). Tool names unconfirmed — verify via tools/list on first install."
+    },
+    "typescript": {
+      "mcps": [],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["tsc"],
+      "specialists": ["frontend-dev", "backend-dev", "code-review"],
+      "official_docs_url": "https://www.typescriptlang.org/docs",
+      "_compensating_skill_required": true,
+      "_note": "No viable TypeScript MCP (typescript-mcp is community pre-release v0.0.14 — not production ready). AI type-check loop: invoke tsc --noEmit via Bash, read errors back into context. learn-codebase should generate typescript-strict-knowledge covering strict mode patterns, generic constraints, discriminated unions, type narrowing — scoped to this project's tsconfig.json settings."
     },
     "docker": {
       "mcps": [],

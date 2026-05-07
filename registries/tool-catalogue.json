@@ -365,6 +365,236 @@
         ],
         "notes": "Relational knowledge graph + skills for every major Vercel product. Effective pre-built AMS output for Vercel-hosted projects. Pairs well with vercel-mcp and next-devtools-mcp. Ingestion: selective copy of product-specific skills. Full license check required before recommending to commercial projects."
       }
+    },
+    "storybook-mcp": {
+      "id": "storybook-mcp",
+      "type": "mcp",
+      "name": "Storybook MCP",
+      "vendor": "Storybook (storybookjs org — official)",
+      "version": "0.7.0",
+      "homepage": "https://github.com/storybookjs/mcp",
+      "install": {
+        "method": "npx",
+        "command": "npx @storybook/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["storybook"],
+      "tools": [
+        { "name": "list-all-stories", "crud": "pure-read", "side_effects": [] },
+        { "name": "list-all-components", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-story-source-code", "crud": "pure-read", "side_effects": [] },
+        { "name": "list-all-documentation", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-documentation", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-documentation-for-story", "crud": "pure-read", "side_effects": [] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 3,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 3,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Knowledge-only — reads stories and docs but cannot execute tests or verify component behaviour. Must be paired with storybook-addon-mcp to close the AI write→test→self-correct loop."
+        ],
+        "notes": "Official Storybook org. Serves component and story knowledge from running Storybook manifests — replaces AI guessing about component API, props, and usage patterns. All tools are pure-read. Requires Storybook dev server running (typically localhost:6006). Pairs with storybook-addon-mcp for test execution. 3M+ monthly downloads. Last commit 2026-04-30."
+      }
+    },
+    "storybook-addon-mcp": {
+      "id": "storybook-addon-mcp",
+      "type": "mcp",
+      "name": "Storybook Addon MCP (Test Execution)",
+      "vendor": "Storybook (storybookjs org — official)",
+      "version": "0.6.0",
+      "homepage": "https://www.npmjs.com/package/@storybook/addon-mcp",
+      "install": {
+        "method": "npm-addon",
+        "command": "npm install -D @storybook/addon-mcp @storybook/addon-vitest vitest && add '@storybook/addon-mcp' to .storybook/main.ts addons array"
+      },
+      "auth_model": "none",
+      "technologies": ["storybook"],
+      "tools": [
+        { "name": "run-story-tests", "crud": "read-with-side-effects", "side_effects": ["Triggers Vitest test runner via Storybook channel; writes test result artefacts; may update coverage reports"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 5,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 2,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [],
+        "notes": "Official Storybook org. Closes the AI development loop: AI writes component → calls run-story-tests → receives structured pass/fail + a11y violations + error details → self-corrects → repeats until green. This is the primary automated verification mechanism for component development. run-story-tests returns { passingStoryCount, failingStoryCount, a11yViolationCount, unhandledErrorCount } plus per-story error details. Conditional approval: requires @storybook/addon-vitest and vitest to be installed and configured — high friction_cost=2 for first-time setup. README is thin (12 lines); implementation is clear from source. Pairs with storybook-mcp for component knowledge context before writing."
+      }
+    },
+    "playwright-mcp": {
+      "id": "playwright-mcp",
+      "type": "mcp",
+      "name": "Playwright MCP",
+      "vendor": "Microsoft (Playwright team — official)",
+      "version": "0.0.74",
+      "homepage": "https://github.com/microsoft/playwright-mcp",
+      "install": {
+        "method": "npx",
+        "command": "npx @playwright/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["playwright", "storybook"],
+      "tools": [
+        { "name": "browser_navigate", "crud": "write", "side_effects": ["Changes browser URL; triggers page load; records in history"] },
+        { "name": "browser_navigate_back", "crud": "write", "side_effects": ["Navigates browser history back"] },
+        { "name": "browser_snapshot", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_screenshot", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_click", "crud": "write", "side_effects": ["Triggers click event; may change page state, submit forms, navigate"] },
+        { "name": "browser_type", "crud": "write", "side_effects": ["Enters text into focused element"] },
+        { "name": "browser_fill", "crud": "write", "side_effects": ["Sets input value directly"] },
+        { "name": "browser_fill_form", "crud": "write", "side_effects": ["Fills multiple form fields; may trigger validation"] },
+        { "name": "browser_hover", "crud": "write", "side_effects": ["Triggers hover/mouseover events; may change UI state"] },
+        { "name": "browser_drag", "crud": "write", "side_effects": ["Triggers drag events; may reorder DOM or state"] },
+        { "name": "browser_drop", "crud": "write", "side_effects": ["Completes drag-drop; modifies page state"] },
+        { "name": "browser_select_option", "crud": "write", "side_effects": ["Changes select element value; triggers change events"] },
+        { "name": "browser_press_key", "crud": "write", "side_effects": ["Triggers keyboard events; may submit forms, navigate, change state"] },
+        { "name": "browser_resize", "crud": "write", "side_effects": ["Changes viewport size; triggers resize events"] },
+        { "name": "browser_handle_dialog", "crud": "write", "side_effects": ["Dismisses or accepts browser dialogs"] },
+        { "name": "browser_file_upload", "crud": "write", "side_effects": ["Attaches file to upload input"] },
+        { "name": "browser_evaluate", "crud": "read-with-side-effects", "side_effects": ["Executes arbitrary JavaScript in page context; can cause any side effect depending on script"] },
+        { "name": "browser_wait_for", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_tabs", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_close", "crud": "write", "side_effects": ["Closes active browser tab/context"] },
+        { "name": "browser_console_messages", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_network_requests", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_network_request", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_run_code_unsafe", "crud": "destructive", "side_effects": ["Runs arbitrary unsafe code in browser; potential for irreversible state changes"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "Apache-2.0",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Does not directly run Storybook story-level tests — complements storybook-addon-mcp by covering interactive/DOM assertions that run-story-tests cannot express. Use addon-mcp first; use playwright-mcp for deeper behavioural verification."
+        ],
+        "notes": "Official Microsoft/Playwright team. Enables AI to navigate to Storybook (localhost:6006), interact with components, and assert DOM state — closing the AI write→verify loop for interactive behaviour beyond what Vitest story tests cover. browser_run_code_unsafe is destructive — must never fire in audit/read-only modes. browser_evaluate is read-with-side-effects — treat with caution. Very active: v0.0.74 published 2026-05-06. Last commit 2026-05-06. Apache-2.0."
+      }
+    },
+    "sitecore-server-mcp": {
+      "id": "sitecore-server-mcp",
+      "type": "mcp",
+      "name": "Sitecore MCP Server",
+      "vendor": "Community — Antonytm (EXDST; verifiable maintainer)",
+      "version": "1.3.12",
+      "homepage": "https://github.com/Antonytm/mcp-sitecore-server",
+      "install": {
+        "method": "npx",
+        "command": "npx @Antonytm/mcp-sitecore-server@latest (or Docker: docker run antonytm/mcp-sitecore-server)"
+      },
+      "auth_model": "api_key",
+      "technologies": ["sitecore-xmc", "sitecore-jss", "sitecore-content-sdk"],
+      "tools": [
+        { "name": "graphql_introspect", "crud": "pure-read", "side_effects": [] },
+        { "name": "graphql_query", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_item", "crud": "pure-read", "side_effects": [] },
+        { "name": "search_items", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_stored_queries", "crud": "pure-read", "side_effects": [] },
+        { "name": "create_item", "crud": "write", "side_effects": ["Creates Sitecore item; may trigger workflow and publishing"] },
+        { "name": "update_item", "crud": "write", "side_effects": ["Updates Sitecore item fields; may trigger workflow"] },
+        { "name": "delete_item", "crud": "destructive", "side_effects": ["Permanently deletes Sitecore item and children unless recycled"] },
+        { "name": "get_layout", "crud": "pure-read", "side_effects": [] },
+        { "name": "update_layout", "crud": "write", "side_effects": ["Modifies component layout/datasource assignments"] },
+        { "name": "get_users", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_roles", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_item_acl", "crud": "pure-read", "side_effects": [] },
+        { "name": "update_user", "crud": "write", "side_effects": ["Modifies Sitecore user account"] },
+        { "name": "update_role_acl", "crud": "write", "side_effects": ["Changes access control; affects all users in role"] },
+        { "name": "execute_powershell", "crud": "write", "side_effects": ["Runs arbitrary PowerShell on Sitecore instance; scope depends on script — can be destructive"] },
+        { "name": "get_powershell_docs", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_index_details", "crud": "pure-read", "side_effects": [] },
+        { "name": "rebuild_index", "crud": "write", "side_effects": ["Triggers full index rebuild; resource-intensive; may affect search availability"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "conditional",
+          "harness_strength": 4,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 2,
+          "composability": "pass",
+          "security": "conditional",
+          "crud_truthfulness": "pass",
+          "license": "conditional",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Covers Sitecore server-side APIs (GraphQL, Item Service, PowerShell). Does NOT cover Sitecore Content SDK JavaScript patterns (@sitecore-content-sdk/* composition, component factory, personalization hooks). Pair with a sitecore-xmc-knowledge domain skill generated by learn-codebase to cover the JS SDK layer."
+        ],
+        "notes": "Community tool by Antonytm (EXDST company, 124 public repos, verifiable professional identity). Not official Sitecore — note this to clients. Apache-2.0 in GitHub repo but license field missing from package.json — resolve before production use. 100+ tools covering GraphQL, Item Service, PowerShell, Security, Presentation, Indexing. Last commit 2026-04-11 (active). Docker install available for CI use. SECURITY: execute_powershell runs arbitrary scripts on the Sitecore instance — must be blocked in read-only and audit modes. update_role_acl is sensitive — security posture requires strict human gate. friction_cost=2 because requires running Sitecore instance with Sitecore PowerShell Extensions installed and API credentials. Supersedes sitecore-knowledge-mcp scaffold."
+      }
+    },
+    "eslint-mcp": {
+      "id": "eslint-mcp",
+      "type": "mcp",
+      "name": "ESLint MCP",
+      "vendor": "ESLint (OpenJS Foundation — official)",
+      "version": "0.3.5",
+      "homepage": "https://github.com/eslint/rewrite",
+      "install": {
+        "method": "npx",
+        "command": "npx @eslint/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["eslint", "typescript", "javascript"],
+      "tools": [
+        { "name": "lint_text", "crud": "pure-read", "side_effects": [] },
+        { "name": "check_code", "crud": "pure-read", "side_effects": [] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "Apache-2.0",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Tool list not fully documented in README (12-line README in monorepo). Exact tool names (lint_text vs check_code) should be confirmed by connecting to the server and calling tools/list during project setup."
+        ],
+        "notes": "Official ESLint org (OpenJS Foundation). Apache-2.0. Enables AI to lint code as part of the write→verify loop — AI writes code, calls lint, reads violations, self-corrects before reporting done. Supports ESLint v9 flat config (eslint.config.js). Very recently updated (2026-05-06 — 1 day before curation). Conditional approval: tool names unconfirmed due to thin README — verify via tools/list on first install. Re-evaluate tool list after connection. friction_cost=4 because ESLint config is already project-local (low overhead once project has eslint.config.js)."
+      }
     }
   }
 }

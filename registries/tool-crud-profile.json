@@ -129,6 +129,89 @@
         "deploy_to_vercel": { "crud": "write", "side_effects": ["Creates deployment; consumes build minutes"] },
         "check_domain_availability_and_price": { "crud": "pure-read", "side_effects": [] }
       }
+    },
+    "storybook-mcp": {
+      "vendor": "Storybook (official)",
+      "version_range": ">=0.7.0",
+      "methods": {
+        "list-all-stories": { "crud": "pure-read", "side_effects": [] },
+        "list-all-components": { "crud": "pure-read", "side_effects": [] },
+        "get-story-source-code": { "crud": "pure-read", "side_effects": [] },
+        "list-all-documentation": { "crud": "pure-read", "side_effects": [] },
+        "get-documentation": { "crud": "pure-read", "side_effects": [] },
+        "get-documentation-for-story": { "crud": "pure-read", "side_effects": [] }
+      }
+    },
+    "storybook-addon-mcp": {
+      "vendor": "Storybook (official)",
+      "version_range": ">=0.6.0",
+      "methods": {
+        "run-story-tests": { "crud": "read-with-side-effects", "side_effects": ["Triggers Vitest via Storybook channel; writes test result artefacts; may update coverage reports"] }
+      }
+    },
+    "playwright-mcp": {
+      "vendor": "Microsoft (Playwright team, official)",
+      "version_range": ">=0.0.74",
+      "methods": {
+        "browser_navigate": { "crud": "write", "side_effects": ["Changes browser URL; triggers page load; records in history"] },
+        "browser_navigate_back": { "crud": "write", "side_effects": ["Navigates browser history back"] },
+        "browser_snapshot": { "crud": "pure-read", "side_effects": [] },
+        "browser_screenshot": { "crud": "pure-read", "side_effects": [] },
+        "browser_click": { "crud": "write", "side_effects": ["Triggers click event; may submit forms, navigate, change state"] },
+        "browser_type": { "crud": "write", "side_effects": ["Enters text into focused element"] },
+        "browser_fill": { "crud": "write", "side_effects": ["Sets input value directly"] },
+        "browser_fill_form": { "crud": "write", "side_effects": ["Fills multiple fields; may trigger validation events"] },
+        "browser_hover": { "crud": "write", "side_effects": ["Triggers hover/mouseover events; may change UI state"] },
+        "browser_drag": { "crud": "write", "side_effects": ["Triggers drag events; may reorder DOM"] },
+        "browser_drop": { "crud": "write", "side_effects": ["Completes drag-drop; modifies page state"] },
+        "browser_select_option": { "crud": "write", "side_effects": ["Changes select value; triggers change events"] },
+        "browser_press_key": { "crud": "write", "side_effects": ["Triggers keyboard events; may submit forms or navigate"] },
+        "browser_resize": { "crud": "write", "side_effects": ["Changes viewport size; triggers resize events"] },
+        "browser_handle_dialog": { "crud": "write", "side_effects": ["Dismisses or accepts browser dialogs"] },
+        "browser_file_upload": { "crud": "write", "side_effects": ["Attaches file to upload input"] },
+        "browser_evaluate": { "crud": "read-with-side-effects", "side_effects": ["Executes arbitrary JS in page context; scope of side effects depends on script"] },
+        "browser_wait_for": { "crud": "pure-read", "side_effects": [] },
+        "browser_tabs": { "crud": "pure-read", "side_effects": [] },
+        "browser_close": { "crud": "write", "side_effects": ["Closes browser tab/context"] },
+        "browser_console_messages": { "crud": "pure-read", "side_effects": [] },
+        "browser_network_requests": { "crud": "pure-read", "side_effects": [] },
+        "browser_network_request": { "crud": "pure-read", "side_effects": [] },
+        "browser_run_code_unsafe": { "crud": "destructive", "side_effects": ["Runs arbitrary unsafe code; potential for irreversible state changes"] }
+      }
+    },
+    "sitecore-server-mcp": {
+      "vendor": "Community — Antonytm (EXDST)",
+      "version_range": ">=1.3.12",
+      "methods": {
+        "graphql_introspect": { "crud": "pure-read", "side_effects": [] },
+        "graphql_query": { "crud": "pure-read", "side_effects": [] },
+        "get_item": { "crud": "pure-read", "side_effects": [] },
+        "search_items": { "crud": "pure-read", "side_effects": [] },
+        "get_stored_queries": { "crud": "pure-read", "side_effects": [] },
+        "create_item": { "crud": "write", "side_effects": ["Creates Sitecore item; may trigger workflow and publishing rules"] },
+        "update_item": { "crud": "write", "side_effects": ["Updates item fields; may trigger workflow"] },
+        "delete_item": { "crud": "destructive", "side_effects": ["Permanently deletes item and children unless recycled; check recycle bin settings"] },
+        "get_layout": { "crud": "pure-read", "side_effects": [] },
+        "update_layout": { "crud": "write", "side_effects": ["Modifies component/datasource layout assignments"] },
+        "get_users": { "crud": "pure-read", "side_effects": [] },
+        "get_roles": { "crud": "pure-read", "side_effects": [] },
+        "get_item_acl": { "crud": "pure-read", "side_effects": [] },
+        "update_user": { "crud": "write", "side_effects": ["Modifies Sitecore user account properties"] },
+        "update_role_acl": { "crud": "write", "side_effects": ["Changes access control for all users in role — high-impact security change"] },
+        "execute_powershell": { "crud": "write", "side_effects": ["Runs arbitrary PowerShell on Sitecore instance; can be destructive depending on script — treat as write/destructive; requires human gate"] },
+        "get_powershell_docs": { "crud": "pure-read", "side_effects": [] },
+        "get_index_details": { "crud": "pure-read", "side_effects": [] },
+        "rebuild_index": { "crud": "write", "side_effects": ["Triggers full index rebuild; resource-intensive; may affect search availability during rebuild"] }
+      }
+    },
+    "eslint-mcp": {
+      "vendor": "ESLint (OpenJS Foundation, official)",
+      "version_range": ">=0.3.5",
+      "methods": {
+        "lint_text": { "crud": "pure-read", "side_effects": [] },
+        "check_code": { "crud": "pure-read", "side_effects": [] },
+        "_note": "Tool names unconfirmed — verify via tools/list on first connection. ESLint MCP is read-only by design (linting does not modify source)."
+      }
     }
   }
 }
