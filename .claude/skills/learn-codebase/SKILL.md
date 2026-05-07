@@ -38,19 +38,73 @@ helper definitions are in `procedures/ams-audit-logging.md`.
 
 ### At invocation start (before Step 0)
 
+Because each Bash tool call runs in a fresh shell, `$LOG_FILE` and `$RUN_ID`
+must be persisted to disk and reloaded at the top of every subsequent bash
+block. The canonical pattern is:
+
+**Invocation-start block** (run once, first thing):
+```bash
+# 1. Resolve AMS_HOME from the skill's own path or cwd
+AMS_HOME="$(pwd)"   # AMS worktree root; adjust if cwd differs
+
+# 2. Generate RUN_ID and LOG_FILE
+RUN_ID="$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c 'import uuid; print(uuid.uuid4())')"
+mkdir -p "$AMS_HOME/logs"
+TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%S)"
+LOG_FILE="$AMS_HOME/logs/learn-codebase-${TIMESTAMP}-${RUN_ID}.jsonl"
+
+# 3. Persist both to a sidecar so later bash calls can reload them
+echo "$LOG_FILE" > "$AMS_HOME/logs/.current-run-log"
+echo "$RUN_ID"   > "$AMS_HOME/logs/.current-run-id"
+
+# 4. Define emit_event helper (inline — redefined each bash block)
+emit_event() {
+  local event_type="$1" level="${2:-info}" step="${3:-null}" payload="$4"
+  printf '{"timestamp":"%s","run_id":"%s","skill":"learn-codebase","event_type":"%s","level":"%s","step":%s,"payload":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$RUN_ID" "$event_type" "$level" \
+    "$([ "$step" = "null" ] && echo "null" || printf '"%s"' "$step")" \
+    "${payload:-{\}}" >> "$LOG_FILE"
+}
+```
+
+**Every subsequent bash block** must begin with:
+```bash
+AMS_HOME="$(pwd)"
+LOG_FILE="$(cat "$AMS_HOME/logs/.current-run-log" 2>/dev/null)"
+RUN_ID="$(cat  "$AMS_HOME/logs/.current-run-id"  2>/dev/null)"
+emit_event() {
+  local event_type="$1" level="${2:-info}" step="${3:-null}" payload="$4"
+  printf '{"timestamp":"%s","run_id":"%s","skill":"learn-codebase","event_type":"%s","level":"%s","step":%s,"payload":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$RUN_ID" "$event_type" "$level" \
+    "$([ "$step" = "null" ] && echo "null" || printf '"%s"' "$step")" \
+    "${payload:-{\}}" >> "$LOG_FILE"
+}
+```
+
+This reload header is **mandatory** at the top of every Bash tool call after
+the first one. Never assume shell variables carry across calls.
+
+**Sidecar cleanup**: at invocation end (success or failure), `rm -f
+"$AMS_HOME/logs/.current-run-log" "$AMS_HOME/logs/.current-run-id"` so stale
+values cannot bleed into a subsequent run that starts before cleanup.
+
+---
+
 1. Generate a UUIDv4 as `RUN_ID`.
 2. Resolve `AMS_HOME` (the path to this AMS checkout — typically the cwd when
    the skill is invoked).
 3. Compute `LOG_FILE=$AMS_HOME/logs/learn-codebase-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
 4. Ensure `$AMS_HOME/logs/` exists.
-5. Define the `emit_event` bash helper per `procedures/ams-audit-logging.md`.
-6. Emit `invocation_start` with payload:
+5. Persist `LOG_FILE` and `RUN_ID` to `logs/.current-run-log` and
+   `logs/.current-run-id` as described above.
+6. Define the `emit_event` bash helper (inline in every bash block).
+7. Emit `invocation_start` with payload:
    ```json
    { "args": ["<target-path>", "--strict|--reconfigure-integrations|..."],
      "cwd": "<cwd>", "ams_version": "v2.1", "target": "<absolute target path>",
      "run_log": "<LOG_FILE absolute path>" }
    ```
-7. Emit `claude_mem_project_id_resolved` immediately after probing
+8. Emit `claude_mem_project_id_resolved` immediately after probing
    claude-mem health (Step 0): payload `{ "auto_detected_id": "<from cwd>",
    "target_basename": "<basename of target path>", "id_will_be_used":
    "<which id learn-codebase will tag synthetic observations with>",
@@ -99,12 +153,20 @@ Emit `invocation_end` with:
 }
 ```
 
+Then clean up sidecar files:
+```bash
+rm -f "$AMS_HOME/logs/.current-run-log" "$AMS_HOME/logs/.current-run-id"
+```
+
 ### Error path
 
 On any unhandled error, emit `error` with full context, then `invocation_end`
-with `outcome: "failure"`. **Never let an exception propagate without a
-matching log entry** — that's the failure mode the smoke test surfaced
-(silent stalling).
+with `outcome: "failure"`, then clean up the sidecar files:
+```bash
+rm -f "$AMS_HOME/logs/.current-run-log" "$AMS_HOME/logs/.current-run-id"
+```
+**Never let an exception propagate without a matching log entry** — that's
+the failure mode the smoke test surfaced (silent stalling).
 
 ### Log retention
 
@@ -449,6 +511,32 @@ Description tightness matters — a vague description ("Use when working with
 Next.js") triggers too eagerly across unrelated work; a specific description
 ("Use when editing files in apps/xmc-shadcn or files importing
 @sitecore-jss/*") triggers correctly.
+
+### Storybook special case (mandatory when detected)
+
+If Storybook is detected in the project, the generated `storybook-knowledge`
+skill MUST include `*.stories.tsx` (and `*.stories.ts`, `*.stories.jsx`) as
+explicit file-pattern proximity triggers in the `description` field. Example:
+
+```markdown
+description: |
+  Use when working with *.stories.tsx, *.stories.ts, *.stories.jsx files,
+  when writing Storybook stories, when using @storybook/* imports, or when
+  the user mentions Storybook, stories, or visual testing.
+  MANDATORY PRE-CONDITION: invoke this skill before writing any .stories.tsx file.
+```
+
+The skill body MUST include a **Testing API** section documenting:
+- How to use `@storybook/test` (play functions, userEvent, expect)
+- How to use `@storybook/testing-library` for component interaction assertions
+- How to run Storybook tests via Playwright (`storybook test` or `test-storybook`)
+- Concrete example of a complete story with a `play` function that asserts behaviour
+- The project's actual Storybook run command (from package.json scripts)
+
+The skill description must include the phrase **"MANDATORY PRE-CONDITION: invoke
+this skill before writing any .stories.tsx file"** so that Claude's skill-match
+logic fires it before story authoring begins, not after. This is a harness
+enforcement rule, not a recommendation.
 
 ### Each domain skill is the complete legal system for its tech
 
