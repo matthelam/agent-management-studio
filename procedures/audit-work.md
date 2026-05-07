@@ -212,9 +212,22 @@ Mode: <fix|change|upgrade>
 Status: <status>
 Duration: brief(time) → self_assess(time) → plan(time) → execute(time) → final_verify(time) → done(time)
 
+COGNITIVE DIMENSIONS:
+  Harness:  <mode> / <harness-list>  [e.g. single / empiricist]
+  Lenses:   <lens-list or "none">
+  Skills at start: <skill-id-list or "none">
+  Changes during work: <count>  [list each cognitive_state_changed event inline]
+    → <phase>: <change_description>
+
+SKILLS CONSULTED:
+  <skill-id> (<count>×) — outcomes: <pattern_applied|guard_rail_enforced|doc_fallback_used|no_match>
+  ...
+
 TIMELINE:
   HH:MM  Phase: <phase> — <summary>
   HH:MM  Self-assess: <agent declarations>
+  HH:MM  Skill triggered: <skill-id> / <outcome> — <reason>
+  HH:MM  Cognitive change: <change_description>
   HH:MM  ...
 
 DECISION POINTS: <count>, <correctness assessment>
@@ -222,6 +235,11 @@ VERIFICATION: <pass>/<total> ACs passed with evidence
 ROOT CAUSE: <category or N/A>
 FINDINGS: <count> — see findings.json
 ```
+
+Read cognitive dimension data from `work-items/<ticket-id>.jsonl` — filter for
+`cognitive_team_resolved`, `skill_triggered`, and `cognitive_state_changed`
+events. If none are present, note "Cognitive logging not captured (pre-v2.3
+work item)" rather than leaving the section blank.
 
 ### Cross-ticket mode output
 

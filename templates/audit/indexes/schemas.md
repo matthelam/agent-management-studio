@@ -154,3 +154,34 @@ One entry per backlog-related event. Written when any `backlog_*` event type fir
 ```
 
 `ticket_key` is populated for ticket-scoped events. `null` for `backlog_mode_activated` and `backlog_elaboration`. `outcome` is a short summary (e.g. `"success"`, `"failed"`, `"auto_selected"`).
+
+---
+
+## cognitive-snapshots.jsonl
+
+One entry per cognitive dimension event. Written when `cognitive_team_resolved`,
+`skill_triggered`, or `cognitive_state_changed` fires. Enables cross-ticket
+review of which harnesses, lenses, and skills were engaged and how the cognitive
+configuration evolved during delivery.
+
+```json
+{
+  "session_id": "SESSION-20260220-006",
+  "work_item_id": "WORK-001",
+  "timestamp": "ISO-8601",
+  "event_type": "cognitive_team_resolved | skill_triggered | cognitive_state_changed",
+  "harnesses": ["empiricist"],
+  "lenses": ["accessibility"],
+  "skills_active": ["sitecore-knowledge", "tailwindcss-v4-knowledge"],
+  "phase": "ticket_start | brief | plan | execute | final_verify | null",
+  "detail": "string"
+}
+```
+
+`detail` is a short summary appropriate to the event type:
+- `cognitive_team_resolved`: `"single/empiricist — 2 skills active at start"`
+- `skill_triggered`: `"sitecore-knowledge / guard_rail_enforced — component factory registration"`
+- `cognitive_state_changed`: `"added skeptic + security lens on dev override"`
+
+`skills_active` and `lenses` reflect the state **after** the event for
+`cognitive_state_changed`; the initial state for `cognitive_team_resolved`.
