@@ -1,0 +1,107 @@
+{
+  "_comment": "Signatures for solution-type classification + canonical command extraction. learn-codebase Step 3 uses this to identify build/deploy patterns. Initial v1 covers user's known stack.",
+  "_version": "1.0.0",
+  "_updated": "2026-05-06",
+  "solution_types": {
+    "headless-nextjs": {
+      "signals": {
+        "files": ["next.config.js", "next.config.ts", "next.config.mjs"],
+        "package_json_dependencies": ["next"],
+        "absent": ["sitecore.json"]
+      },
+      "canonical_commands": {
+        "build": "next build",
+        "test": "next test || npm test",
+        "deploy": "vercel deploy --prod (if Vercel) | platform-specific",
+        "dev": "next dev"
+      },
+      "deploy_targets": ["vercel", "netlify", "cloudflare-pages", "aws-amplify", "azure-static-web-apps"]
+    },
+    "headless-monorepo-turbo": {
+      "signals": {
+        "files": ["turbo.json"],
+        "package_json_dependencies": ["turbo"]
+      },
+      "canonical_commands": {
+        "build": "pnpm turbo run build || npm run turbo build",
+        "test": "pnpm turbo run test",
+        "lint": "pnpm turbo run lint",
+        "dev": "pnpm turbo run dev"
+      },
+      "deploy_targets": ["per-app"]
+    },
+    "dotnet-app": {
+      "signals": {
+        "files_glob": ["*.csproj", "*.sln"]
+      },
+      "canonical_commands": {
+        "build": "dotnet build",
+        "test": "dotnet test",
+        "publish": "dotnet publish -c Release",
+        "run": "dotnet run"
+      },
+      "deploy_targets": ["azure-app-service", "iis", "container", "azure-functions"]
+    },
+    "sitecore-xmc": {
+      "signals": {
+        "files": ["sitecore.json"],
+        "files_glob": ["*.scproj", "src/**/serialization.json"],
+        "directories_present": [".sitecore/"]
+      },
+      "canonical_commands": {
+        "build": "sitecore ser push (after content sync) && next build (for headless head)",
+        "content_sync": "sitecore ser pull (pull content from environment) | sitecore ser push (push local serialization to env)",
+        "test": "next test || jest",
+        "deploy": "Sitecore-specific (varies by environment)"
+      },
+      "deploy_targets": ["sitecore-managed-cloud", "sitecore-on-prem", "sitecore-docker"]
+    },
+    "sitecore-jss": {
+      "signals": {
+        "package_json_dependencies": ["@sitecore-jss/sitecore-jss-nextjs", "@sitecore-jss/sitecore-jss-react"]
+      },
+      "canonical_commands": {
+        "build": "jss build",
+        "deploy_app": "jss deploy app",
+        "deploy_config": "jss deploy config"
+      },
+      "deploy_targets": ["sitecore-managed-cloud", "sitecore-on-prem"]
+    },
+    "sitecore-content-sdk-hybrid": {
+      "signals": {
+        "package_json_dependencies": ["@sitecore/content-sdk-core", "next", "@sitecore-content-sdk/nextjs"],
+        "files": ["sitecore.json"]
+      },
+      "canonical_commands": {
+        "build": "next build",
+        "content_sync": "sitecore ser pull / sitecore ser push",
+        "test": "next test || jest",
+        "deploy": "Vercel (head) + Sitecore env (content)"
+      },
+      "deploy_targets": ["vercel + sitecore"]
+    },
+    "containerised": {
+      "signals": {
+        "files": ["Dockerfile", "docker-compose.yml", "compose.yaml"]
+      },
+      "canonical_commands": {
+        "build": "docker build (or docker compose build)",
+        "run": "docker compose up",
+        "test": "docker compose run --rm <service> <test-command>"
+      },
+      "deploy_targets": ["docker-host", "kubernetes", "azure-container-apps", "aws-ecs"]
+    }
+  },
+  "_classification_rules": {
+    "_comment": "Order of evaluation matters. First match wins. Hybrid signatures (multiple matches) get classified as the most-specific.",
+    "evaluation_order": [
+      "sitecore-content-sdk-hybrid",
+      "sitecore-xmc",
+      "sitecore-jss",
+      "headless-monorepo-turbo",
+      "headless-nextjs",
+      "dotnet-app",
+      "containerised"
+    ]
+  }
+}

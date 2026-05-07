@@ -1,0 +1,134 @@
+{
+  "_comment": "Per-tool/per-method CRUD truthfulness data. Drives the per-project tool-safety skill. Initial v1 entries cover common CLIs + a few MCP examples. Populated by curate-mcp; grows with curation.",
+  "_version": "1.0.0",
+  "_updated": "2026-05-06",
+  "_classes": {
+    "pure-read": "No side effects of any kind",
+    "read-with-side-effects": "Documented as read but writes logs/telemetry/mtime/cache/lock files",
+    "write": "Modifies state in local repo or remote system",
+    "destructive": "Irreversible writes (deletions, force-pushes, schema drops)"
+  },
+  "tools": {
+    "git": {
+      "vendor": "git",
+      "version_range": ">=2.30",
+      "methods": {
+        "status": { "crud": "pure-read", "side_effects": [] },
+        "log": { "crud": "pure-read", "side_effects": [] },
+        "diff": { "crud": "pure-read", "side_effects": [] },
+        "show": { "crud": "pure-read", "side_effects": [] },
+        "branch": { "crud": "pure-read", "side_effects": [], "_note": "Without args; -d / -D would be destructive" },
+        "branch -d": { "crud": "destructive", "side_effects": ["Deletes local branch"] },
+        "branch -D": { "crud": "destructive", "side_effects": ["Force-deletes local branch even if not merged"] },
+        "stash list": { "crud": "read-with-side-effects", "side_effects": ["Touches reflog"] },
+        "stash show": { "crud": "pure-read", "side_effects": [] },
+        "add": { "crud": "write", "side_effects": ["Modifies index"] },
+        "commit": { "crud": "write", "side_effects": ["Creates commit object"] },
+        "push": { "crud": "write", "side_effects": ["Updates remote ref"] },
+        "push --force": { "crud": "destructive", "side_effects": ["Rewrites remote history"] },
+        "push --force-with-lease": { "crud": "destructive", "side_effects": ["Rewrites remote history (with safety check)"] },
+        "reset": { "crud": "write", "side_effects": ["Modifies HEAD/index"] },
+        "reset --hard": { "crud": "destructive", "side_effects": ["Discards working tree changes"] },
+        "checkout --": { "crud": "destructive", "side_effects": ["Discards working tree changes"] },
+        "rebase": { "crud": "write", "side_effects": ["Rewrites local history"] },
+        "rebase -i": { "crud": "write", "side_effects": ["Rewrites local history; interactive"] },
+        "merge": { "crud": "write", "side_effects": ["Creates merge commit"] },
+        "tag": { "crud": "write", "side_effects": ["Creates tag"] },
+        "clean -f": { "crud": "destructive", "side_effects": ["Removes untracked files"] }
+      }
+    },
+    "gh": {
+      "vendor": "GitHub",
+      "version_range": ">=2.40",
+      "methods": {
+        "repo view": { "crud": "pure-read", "side_effects": [] },
+        "pr list": { "crud": "pure-read", "side_effects": [] },
+        "pr view": { "crud": "pure-read", "side_effects": [] },
+        "pr create": { "crud": "write", "side_effects": ["Creates PR; visible to all watchers"] },
+        "pr edit": { "crud": "write", "side_effects": ["Modifies PR"] },
+        "pr close": { "crud": "write", "side_effects": ["Changes PR state"] },
+        "issue list": { "crud": "pure-read", "side_effects": [] },
+        "issue create": { "crud": "write", "side_effects": ["Creates issue"] },
+        "release create": { "crud": "write", "side_effects": ["Creates release; tags"] }
+      }
+    },
+    "npm": {
+      "vendor": "npm",
+      "version_range": ">=10",
+      "methods": {
+        "view": { "crud": "pure-read", "side_effects": [] },
+        "search": { "crud": "pure-read", "side_effects": [] },
+        "ls": { "crud": "pure-read", "side_effects": [] },
+        "install": { "crud": "write", "side_effects": ["Writes node_modules + package-lock.json"] },
+        "install --dry-run": { "crud": "read-with-side-effects", "side_effects": ["May write package-lock.json artefacts in older npm versions"] },
+        "publish": { "crud": "write", "side_effects": ["Publishes to remote registry"] },
+        "uninstall": { "crud": "write", "side_effects": ["Removes node_modules entries"] },
+        "audit": { "crud": "pure-read", "side_effects": [] },
+        "audit fix": { "crud": "write", "side_effects": ["Modifies dependencies"] }
+      }
+    },
+    "pnpm": {
+      "vendor": "pnpm",
+      "version_range": ">=8",
+      "methods": {
+        "list": { "crud": "pure-read", "side_effects": [] },
+        "view": { "crud": "pure-read", "side_effects": [] },
+        "install": { "crud": "write", "side_effects": ["Writes node_modules + pnpm-lock.yaml"] },
+        "publish": { "crud": "write", "side_effects": ["Publishes to remote registry"] },
+        "remove": { "crud": "write", "side_effects": ["Removes from manifest + lockfile"] }
+      }
+    },
+    "docker": {
+      "vendor": "Docker",
+      "version_range": ">=24",
+      "methods": {
+        "ps": { "crud": "pure-read", "side_effects": [] },
+        "images": { "crud": "pure-read", "side_effects": [] },
+        "inspect": { "crud": "pure-read", "side_effects": [] },
+        "run": { "crud": "write", "side_effects": ["Creates container"] },
+        "build": { "crud": "write", "side_effects": ["Creates image; uses cache"] },
+        "rm": { "crud": "destructive", "side_effects": ["Removes container"] },
+        "rmi": { "crud": "destructive", "side_effects": ["Removes image"] },
+        "system prune": { "crud": "destructive", "side_effects": ["Removes unused containers/images/volumes"] }
+      }
+    },
+    "dotnet": {
+      "vendor": "Microsoft",
+      "version_range": ">=8",
+      "methods": {
+        "build": { "crud": "write", "side_effects": ["Writes bin/, obj/"] },
+        "test": { "crud": "write", "side_effects": ["Writes test results to obj/"] },
+        "run": { "crud": "write", "side_effects": ["Writes bin/, obj/, may bind to ports"] },
+        "publish": { "crud": "write", "side_effects": ["Writes publish output"] },
+        "list package": { "crud": "pure-read", "side_effects": [] },
+        "tool list": { "crud": "pure-read", "side_effects": [] }
+      }
+    },
+    "atlassian-mcp": {
+      "vendor": "Atlassian (MCP)",
+      "version_range": "current",
+      "methods": {
+        "getJiraIssue": { "crud": "pure-read", "side_effects": [] },
+        "searchJiraIssuesUsingJql": { "crud": "pure-read", "side_effects": [] },
+        "getVisibleJiraProjects": { "crud": "pure-read", "side_effects": [] },
+        "addCommentToJiraIssue": { "crud": "write", "side_effects": ["Visible to all watchers; sends notifications"] },
+        "createJiraIssue": { "crud": "write", "side_effects": ["Creates issue; sends notifications"] },
+        "transitionJiraIssue": { "crud": "write", "side_effects": ["Changes status; may trigger workflow automations"] },
+        "editJiraIssue": { "crud": "write", "side_effects": ["Modifies issue; sends notifications"] }
+      }
+    },
+    "vercel-mcp": {
+      "vendor": "Vercel (MCP)",
+      "version_range": "current",
+      "methods": {
+        "list_projects": { "crud": "pure-read", "side_effects": [] },
+        "list_deployments": { "crud": "pure-read", "side_effects": [] },
+        "get_deployment": { "crud": "pure-read", "side_effects": [] },
+        "get_deployment_build_logs": { "crud": "pure-read", "side_effects": [] },
+        "get_runtime_logs": { "crud": "pure-read", "side_effects": [] },
+        "deploy_to_vercel": { "crud": "write", "side_effects": ["Creates deployment; consumes build minutes"] },
+        "check_domain_availability_and_price": { "crud": "pure-read", "side_effects": [] }
+      }
+    }
+  }
+}

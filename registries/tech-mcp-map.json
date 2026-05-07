@@ -1,0 +1,148 @@
+{
+  "_comment": "Tech key → recommended MCPs / CLIs / skills / specialists / official_docs_url. Initial population covers the user's known stack. Extend via curate-mcp for new tech. official_docs_url is the doc-fallback the dynamic domain skill points to when uncertain about implementation.",
+  "_version": "2.0.0",
+  "_updated": "2026-05-06",
+  "technologies": {
+    "next.js": {
+      "mcps": ["next-devtools"],
+      "clis": ["next"],
+      "specialists": ["frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://nextjs.org/docs"
+    },
+    "react": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://react.dev/reference/react"
+    },
+    "tailwindcss": {
+      "mcps": [],
+      "clis": ["tailwindcss"],
+      "specialists": ["frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://tailwindcss.com/docs"
+    },
+    "radix-ui": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev", "accessibility-audit"],
+      "skills": [],
+      "official_docs_url": "https://www.radix-ui.com/primitives/docs"
+    },
+    "class-variance-authority": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://cva.style/docs"
+    },
+    "vercel": {
+      "mcps": ["vercel"],
+      "clis": ["vercel"],
+      "specialists": ["docker-ops"],
+      "skills": [],
+      "official_docs_url": "https://vercel.com/docs"
+    },
+    "azure": {
+      "mcps": ["azure"],
+      "clis": ["az"],
+      "specialists": ["docker-ops", "security-audit"],
+      "skills": [],
+      "official_docs_url": "https://learn.microsoft.com/azure"
+    },
+    "atlassian-jira": {
+      "mcps": ["atlassian"],
+      "clis": [],
+      "specialists": [],
+      "skills": ["jira-context"],
+      "official_docs_url": "https://support.atlassian.com/jira-software-cloud"
+    },
+    "sitecore-xmc": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev", "content-author"],
+      "skills": [],
+      "official_docs_url": "https://doc.sitecore.com/xmc"
+    },
+    "sitecore-content-sdk": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev"],
+      "skills": [],
+      "official_docs_url": "https://doc.sitecore.com/xmc/en/developers/content-sdk"
+    },
+    "sitecore-jss": {
+      "mcps": ["sitecore-knowledge"],
+      "clis": ["sitecore"],
+      "specialists": ["cms-wrapper-dev", "content-author"],
+      "skills": [],
+      "official_docs_url": "https://doc.sitecore.com/xp/en/developers/jss"
+    },
+    "turborepo": {
+      "mcps": [],
+      "clis": ["turbo"],
+      "specialists": [],
+      "skills": [],
+      "official_docs_url": "https://turborepo.com/docs"
+    },
+    "storybook": {
+      "mcps": [],
+      "clis": ["storybook"],
+      "specialists": ["storybook-dev"],
+      "skills": [],
+      "official_docs_url": "https://storybook.js.org/docs"
+    },
+    "chromatic": {
+      "mcps": [],
+      "clis": ["chromatic"],
+      "specialists": ["storybook-dev"],
+      "skills": [],
+      "official_docs_url": "https://www.chromatic.com/docs"
+    },
+    "msw": {
+      "mcps": [],
+      "clis": [],
+      "specialists": ["storybook-dev", "frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://mswjs.io/docs"
+    },
+    "playwright": {
+      "mcps": ["playwright"],
+      "clis": ["playwright"],
+      "specialists": ["frontend-dev"],
+      "skills": [],
+      "official_docs_url": "https://playwright.dev/docs/intro"
+    },
+    "docker": {
+      "mcps": [],
+      "clis": ["docker"],
+      "specialists": ["docker-ops"],
+      "skills": [],
+      "official_docs_url": "https://docs.docker.com"
+    },
+    "dotnet": {
+      "mcps": [],
+      "clis": ["dotnet"],
+      "specialists": ["backend-dev", "code-review"],
+      "skills": [],
+      "official_docs_url": "https://learn.microsoft.com/dotnet"
+    },
+    "github-actions": {
+      "mcps": [],
+      "clis": ["gh"],
+      "specialists": ["docker-ops"],
+      "skills": [],
+      "official_docs_url": "https://docs.github.com/actions"
+    },
+    "obsidian": {
+      "_status": "deprecated_in_v1",
+      "mcps": [],
+      "clis": [],
+      "specialists": [],
+      "skills": [],
+      "official_docs_url": null
+    }
+  }
+}
