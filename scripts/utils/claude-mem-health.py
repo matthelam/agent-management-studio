@@ -1,129 +1,170 @@
 """
 claude-mem lifecycle manager.
 
-Four states:
-  healthy  — claude-mem responds to 'claude-mem --version'
-  start    — claude-mem installed but server not running; auto-start attempted
-  install  — claude-mem not found; local npm install attempted
-  failed   — install or start failed; seeding step will be skipped (warn, non-fatal)
+Tiered resolution — tries each tier before falling back:
+  1. HTTP ping  — worker already running at 127.0.0.1:37777 (global or local)
+  2. Binary on PATH — claude-mem visible globally; start worker and re-ping
+  3. Local node_modules — AMS-local install exists; start worker and re-ping
+  4. npm install → npx claude-mem install --no-auto-start → start → re-ping
+  5. failed — warn and skip (non-fatal)
 
-Local install: npm install is run inside AMS_HOME (not global) so the
-path remains predictable and does not require admin rights.
+"Healthy" means the HTTP worker at port 37777 responds, not just that the
+binary is executable. The worker is what add-observation actually talks to.
 
 Usage:
-  python claude-mem-health.py            → print state and exit 0 if healthy
-  python claude-mem-health.py --ensure   → attempt install/start if not healthy,
-                                           exit 0 if healthy after remediation,
-                                           exit 1 if still failed
+  python claude-mem-health.py            → print state, exit 0 if healthy
+  python claude-mem-health.py --ensure   → attempt remediation, exit 0 if healthy
 """
 
 from __future__ import annotations
 
 import subprocess
 import sys
+import time
+import urllib.request
+import urllib.error
 from pathlib import Path
 
-# Two levels up from scripts/utils/  →  AMS_HOME
 AMS_HOME = Path(__file__).resolve().parents[2]
 NODE_MODULES_BIN = AMS_HOME / "node_modules" / ".bin"
-# On Windows npm creates .cmd wrappers; the bare name is a Unix shell script
-# that subprocess.run cannot execute (WinError 193).
-import sys as _sys
-CLAUDE_MEM_BIN = NODE_MODULES_BIN / (
-    "claude-mem.cmd" if _sys.platform == "win32" else "claude-mem"
-)
+_WIN = sys.platform == "win32"
+# npm creates .cmd wrappers on Windows; bare name is a Unix shell script
+CLAUDE_MEM_LOCAL = NODE_MODULES_BIN / ("claude-mem.cmd" if _WIN else "claude-mem")
+WORKER_URL = "http://127.0.0.1:37777/api/health"
 
 
-def _run(cmd: list[str], cwd: Path | None = None) -> tuple[int, str, str]:
+def _run(cmd: list[str], cwd: Path | None = None, timeout: int = 30) -> tuple[int, str, str]:
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None
+            cmd, capture_output=True, text=True,
+            cwd=str(cwd) if cwd else None, timeout=timeout,
         )
         return result.returncode, result.stdout.strip(), result.stderr.strip()
     except FileNotFoundError:
         return 1, "", "executable not found"
+    except subprocess.TimeoutExpired:
+        return 1, "", "timeout"
 
 
-def _bin_path() -> Path | None:
-    """Return path to claude-mem binary if it exists."""
-    if CLAUDE_MEM_BIN.exists():
-        return CLAUDE_MEM_BIN
-    # Fall back to PATH lookup
-    code, out, _ = _run(["claude-mem", "--version"])
+def ping_worker() -> bool:
+    """Return True if the HTTP worker responds at port 37777."""
+    try:
+        with urllib.request.urlopen(WORKER_URL, timeout=3) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
+def _global_bin() -> list[str] | None:
+    """Return command list for a globally accessible claude-mem, or None."""
+    code, _, _ = _run(["claude-mem", "--version"])
     if code == 0:
-        return Path("claude-mem")  # on PATH
+        return ["claude-mem"]
+    # Also try via npx (resolves from local node_modules or npx cache)
+    code, _, _ = _run(["npx", "--no-install", "claude-mem", "--version"])
+    if code == 0:
+        return ["npx", "--no-install", "claude-mem"]
     return None
 
 
-def check_healthy() -> bool:
-    """Return True if claude-mem responds successfully."""
-    bin_path = _bin_path()
-    if bin_path is None:
-        return False
-    code, _, _ = _run([str(bin_path), "--version"])
-    return code == 0
+def _local_bin() -> list[str] | None:
+    """Return command list for the AMS-local install, or None."""
+    if CLAUDE_MEM_LOCAL.exists():
+        return [str(CLAUDE_MEM_LOCAL)]
+    return None
 
 
-def install() -> bool:
-    """Run npm install in AMS_HOME to add claude-mem locally. Returns True on success."""
-    print("[claude-mem-health] Running npm install in AMS_HOME ...", flush=True)
-    code, out, err = _run(["npm", "install"], cwd=AMS_HOME)
-    if code != 0:
-        print(f"[claude-mem-health] npm install failed: {err}", file=sys.stderr)
-        return False
-    return CLAUDE_MEM_BIN.exists()
-
-
-def start_server() -> bool:
-    """Attempt to start the claude-mem server. Returns True if it becomes healthy."""
-    bin_path = _bin_path()
-    if bin_path is None:
-        return False
-    print("[claude-mem-health] Starting claude-mem server ...", flush=True)
+def _start_worker(cmd: list[str]) -> bool:
+    """Fire claude-mem start and wait up to 8 s for the HTTP worker to respond."""
+    print("[claude-mem-health] Starting worker ...", flush=True)
     subprocess.Popen(
-        [str(bin_path), "start"],
+        cmd + ["start"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    import time
-    for _ in range(5):
+    for _ in range(8):
         time.sleep(1)
-        if check_healthy():
+        if ping_worker():
             return True
     return False
 
 
+def _npm_install() -> bool:
+    """Run npm install in AMS_HOME. Returns True if local binary now exists."""
+    print("[claude-mem-health] Running npm install ...", flush=True)
+    code, _, err = _run(["npm", "install"], cwd=AMS_HOME, timeout=120)
+    if code != 0:
+        print(f"[claude-mem-health] npm install failed: {err}", file=sys.stderr)
+        return False
+    return CLAUDE_MEM_LOCAL.exists()
+
+
+def _full_install() -> bool:
+    """Run npx claude-mem install --no-auto-start for first-time setup."""
+    print("[claude-mem-health] Running claude-mem install ...", flush=True)
+    code, _, err = _run(
+        ["npx", "claude-mem", "install", "--no-auto-start"],
+        cwd=AMS_HOME, timeout=300,
+    )
+    if code != 0:
+        print(f"[claude-mem-health] claude-mem install failed: {err}", file=sys.stderr)
+        return False
+    return True
+
+
 def determine_state() -> str:
-    """Return one of: healthy | start | install | failed."""
-    if check_healthy():
+    """Return one of: healthy | start-global | start-local | install | failed."""
+    if ping_worker():
         return "healthy"
-    if _bin_path() is not None:
-        return "start"
+    if _global_bin() is not None:
+        return "start-global"
+    if _local_bin() is not None:
+        return "start-local"
     if (AMS_HOME / "package.json").exists():
         return "install"
     return "failed"
 
 
 def ensure_healthy() -> str:
-    """Try to reach healthy state. Returns final state string."""
-    state = determine_state()
-    if state == "healthy":
+    """Walk the tier ladder until healthy or exhausted. Returns final state."""
+    # Tier 1: already running
+    if ping_worker():
         return "healthy"
-    if state == "install":
-        if install():
-            state = "start"
-        else:
-            return "failed"
-    if state == "start":
-        if start_server():
+
+    # Tier 2: global binary available — just start the worker
+    cmd = _global_bin()
+    if cmd:
+        print(f"[claude-mem-health] Found global binary: {cmd[0]}", flush=True)
+        if _start_worker(cmd):
             return "healthy"
-        return "failed"
+
+    # Tier 3: local node_modules binary — start the worker
+    cmd = _local_bin()
+    if cmd:
+        print("[claude-mem-health] Found local binary", flush=True)
+        if _start_worker(cmd):
+            return "healthy"
+
+    # Tier 4a: package.json present but not installed — npm install first
+    if not CLAUDE_MEM_LOCAL.exists() and (AMS_HOME / "package.json").exists():
+        if not _npm_install():
+            return "failed"
+        cmd = _local_bin()
+        if cmd and _start_worker(cmd):
+            return "healthy"
+
+    # Tier 4b: binary present but worker not responding after start — full install
+    cmd = _local_bin() or (_global_bin() and [_global_bin()[0]])
+    if cmd:
+        print("[claude-mem-health] Worker failed to start — attempting full install", flush=True)
+        if _full_install() and _start_worker(cmd):
+            return "healthy"
+
     return "failed"
 
 
 def main() -> None:
     ensure = "--ensure" in sys.argv
-
     if ensure:
         final_state = ensure_healthy()
         print(f"[claude-mem-health] state={final_state}")
