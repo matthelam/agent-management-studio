@@ -19,13 +19,15 @@ from logger import step_start, step_end, prescriptive_rule_generated
 #   - <path-or-glob> — <READ ONLY|BLOCK|MODIFY WITH CAUTION> for agents
 # Also accepts READ-ONLY (hyphenated) and trailing description text after action token.
 _GUARDRAIL_RE = re.compile(
-    r"^\s*-\s+(.+?)\s+[—–\-]\s+(READ[\s\-]ONLY|BLOCK|MODIFY WITH CAUTION)",
+    r"^\s*-\s+(.+?)\s+[—–\-]\s+\*{0,2}(READ[\s\-]ONLY|BLOCK|MODIFY WITH CAUTION)\*{0,2}",
     re.IGNORECASE,
 )
 
-# Section detection: matches both "## GUARD RAILS" (new canonical) and
-# "GUARD RAILS:" (existing LLM-generated format, no markdown heading).
-_SECTION_START_RE = re.compile(r"^(#+\s*)?GUARD\s*RAILS?\s*:?\s*$", re.IGNORECASE)
+# Section detection: matches "## GUARD RAILS", "## 10. GUARD RAILS",
+# "GUARD RAILS:", and plain "GUARD RAILS" (no markdown heading).
+_SECTION_START_RE = re.compile(
+    r"^(#+\s*)?(\d+\.\s+)?GUARD\s*RAILS?\s*:?\s*$", re.IGNORECASE
+)
 
 
 def _make_id(path_glob: str, action: str) -> str:
