@@ -17,7 +17,7 @@ def validate(config_path: str) -> list[str]:
     errors: list[str] = []
 
     try:
-        data = json.loads(Path(config_path).read_text(encoding="utf-8"))
+        data = json.loads(Path(config_path).read_text(encoding="utf-8-sig"))
     except Exception as exc:
         return [f"Cannot parse config.json: {exc}"]
 

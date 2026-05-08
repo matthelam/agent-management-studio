@@ -18,10 +18,15 @@ from logger import step_start, step_end, prescriptive_rule_generated
 
 # Canonical GUARD RAIL line format:
 #   - <path-or-glob> — <READ ONLY|BLOCK|MODIFY WITH CAUTION> for agents
+# Also accepts READ-ONLY (hyphenated) and trailing description text after action token.
 _GUARDRAIL_RE = re.compile(
-    r"^\s*-\s+(.+?)\s+[—–-]\s+(READ ONLY|BLOCK|MODIFY WITH CAUTION)\s+for\s+agents",
+    r"^\s*-\s+(.+?)\s+[—–\-]\s+(READ[\s\-]ONLY|BLOCK|MODIFY WITH CAUTION)",
     re.IGNORECASE,
 )
+
+# Section detection: matches both "## GUARD RAILS" (new canonical) and
+# "GUARD RAILS:" (existing LLM-generated format, no markdown heading).
+_SECTION_START_RE = re.compile(r"^(#+\s*)?GUARD\s*RAILS?\s*:?\s*$", re.IGNORECASE)
 
 
 def _make_id(path_glob: str, action: str) -> str:
@@ -40,10 +45,11 @@ def parse_guard_rails(approaches_md: str) -> tuple[list[GuardRail], list[str]]:
     for line in approaches_md.splitlines():
         stripped = line.strip()
 
-        if re.match(r"^#+\s*GUARD\s*RAILS?", stripped, re.IGNORECASE):
+        if _SECTION_START_RE.match(stripped):
             in_guard_rails_section = True
             continue
 
+        # Exit section on a new markdown heading (but not on plain-text approach labels)
         if in_guard_rails_section and re.match(r"^#+\s", stripped):
             in_guard_rails_section = False
 
@@ -52,12 +58,14 @@ def parse_guard_rails(approaches_md: str) -> tuple[list[GuardRail], list[str]]:
 
         m = _GUARDRAIL_RE.match(line)
         if not m:
-            if stripped.startswith("-") and stripped:
+            # Ignore horizontal rules (--- / *** / ===) — not guard rail lines
+            if stripped.startswith("-") and stripped and not re.match(r"^-{2,}$", stripped):
                 warnings.append(f"Skipped malformed GUARD RAIL line: {stripped!r}")
             continue
 
-        path_glob = m.group(1).strip()
-        action_token = m.group(2).strip().lower()
+        path_glob = m.group(1).strip().strip("`")
+        # Normalise READ-ONLY → read only for table lookup
+        action_token = m.group(2).strip().lower().replace("-", " ")
 
         if action_token not in GUARDRAIL_ACTIONS:
             warnings.append(f"Unknown action token '{action_token}' in: {stripped!r}")

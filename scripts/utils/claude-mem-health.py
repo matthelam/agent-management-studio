@@ -30,10 +30,13 @@ CLAUDE_MEM_BIN = NODE_MODULES_BIN / "claude-mem"
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> tuple[int, str, str]:
-    result = subprocess.run(
-        cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None
-    )
-    return result.returncode, result.stdout.strip(), result.stderr.strip()
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=str(cwd) if cwd else None
+        )
+        return result.returncode, result.stdout.strip(), result.stderr.strip()
+    except FileNotFoundError:
+        return 1, "", "executable not found"
 
 
 def _bin_path() -> Path | None:
