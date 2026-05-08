@@ -4,8 +4,5 @@ langgraph>=0.2.57,<0.3.0
 # File-based checkpoint serialisation for cross-process state persistence
 langgraph-checkpoint-sqlite>=1.0.0
 
-# Anthropic SDK — structured output, prompt caching
-anthropic>=0.40.0
-
 # Pydantic v2 — state schema and LLM output validation
 pydantic>=2.7.0,<3.0.0
