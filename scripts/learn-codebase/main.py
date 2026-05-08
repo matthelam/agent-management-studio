@@ -31,17 +31,6 @@ import sys as _sys
 if hasattr(_sys.stdout, "reconfigure"):
     _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# Load .env from the script directory if ANTHROPIC_API_KEY is absent or empty
-_env_file = Path(__file__).parent / ".env"
-if not os.environ.get("ANTHROPIC_API_KEY") and _env_file.exists():
-    for _line in _env_file.read_text(encoding="utf-8").splitlines():
-        _line = _line.strip()
-        if _line and not _line.startswith("#") and "=" in _line:
-            _k, _, _v = _line.partition("=")
-            _k, _v = _k.strip(), _v.strip()
-            if _v:  # only set non-empty values
-                os.environ[_k] = _v
-
 from langgraph.types import Command
 
 from ams_home import get_ams_home, artifact_dir, logs_dir
