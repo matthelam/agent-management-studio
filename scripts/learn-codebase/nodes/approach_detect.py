@@ -16,6 +16,7 @@ from call_claude import run_agents, freetext
 from config import SONNET, OPUS, APPROACH_DETECT_AGENTS, APPROACH_SYNTHESIS_INSTRUCTION
 from stub_helpers import is_stub, STUB_APPROACHES_MD
 from logger import step_start, step_end
+from sampling import smart_sample
 
 
 def run(state: GraphState) -> GraphState:
@@ -38,9 +39,7 @@ def run(state: GraphState) -> GraphState:
 
     target = Path(meta["target_path"])
 
-    # Reuse the same smart sample from pattern_detect, enriched with patterns.md
-    from nodes.pattern_detect import _smart_sample
-    source_sample = _smart_sample(sweep["files_read"], target)
+    source_sample = smart_sample(sweep["files_read"], target)
 
     stack_summary = json.dumps(state.get("stack") or {}, indent=2)
     patterns_summary = state.get("patterns_md") or "(no patterns detected)"
