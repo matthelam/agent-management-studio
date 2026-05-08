@@ -30,173 +30,264 @@ learn-codebase <absolute-path-to-target-repo> [--strict] [--reconfigure-integrat
 
 ---
 
+## Canonical step order
+
+Steps MUST execute in this exact sequence. Each step asserts its required
+input artifacts exist before doing any work. Skipping or reordering a step
+will cause the next step's assertion to fail hard.
+
+```
+Step 0   → .run-<RUN_ID>/run-state.json          preflight + IDs
+Step 0.5 → .run-<RUN_ID>/gitignore.done          protection before any file write
+Step 1   → .run-<RUN_ID>/sweep-manifest.json     file list
+Step 2   → .run-<RUN_ID>/environment-snapshot.json   [HUMAN GATE — stack approval]
+Step 3   → .run-<RUN_ID>/build-deploy.json       canonical commands
+Step 6   → <target>/.claude/patterns.md          LLM analysis (reads sweep-manifest)
+Step 7   → <target>/.claude/approaches.md        LLM analysis (reads sweep-manifest)
+Step 8   → <target>/.claude/prescriptive-rules.json  parsed from approaches.md
+Step 4   → .run-<RUN_ID>/cognitive-team.json     [HUMAN GATE — team + prefix approval]
+Step 4b  → .run-<RUN_ID>/domain-skills-manifest.json  LLM generates per-tech skills
+Step 5   → <target>/.claude/config.json          assembly manifest
+Step 9   → <target>/.claude/skills/tool-safety/SKILL.md  template substitution
+Step 10  → .run-<RUN_ID>/seed.done               copy all artifacts to target
+Step 12  → .run-<RUN_ID>/observations.done       claude-mem seeding
+Step 13  → audit log entry
+Step 14  → final report + cleanup
+```
+
+**Why Steps 6/7 precede Step 4:** domain skill generation (Step 4b) must read
+`patterns.md` and `approaches.md` as input. Running analysis before the team
+gate also means the dev sees detected patterns when approving the team shape.
+The prior ordering (4 before 6/7) was a latent bug — 4b referenced files that
+didn't yet exist.
+
+---
+
+## Artifact directory
+
+All intermediate artifacts live in:
+
+```
+$AMS_HOME/logs/.run-<RUN_ID>/
+```
+
+This directory is created by Step 0 and cleaned up only at `invocation_end`.
+It persists across Bash tool calls (each call is a fresh shell — variables
+don't, but files do).
+
+### Standard bash preamble (every bash block)
+
+Copy this verbatim at the top of **every** Bash tool call in this skill. It
+reloads state from disk and defines the assertion helpers:
+
+```bash
+AMS_HOME="C:/Repositories/agent-management-studio"
+RUN_ID="$(cat "$AMS_HOME/logs/.current-run-id" 2>/dev/null || echo "")"
+LOG_FILE="$(cat "$AMS_HOME/logs/.current-run-log" 2>/dev/null || echo "")"
+ARTIFACT_DIR="$AMS_HOME/logs/.run-$RUN_ID"
+
+emit_event() {
+  [ -z "$LOG_FILE" ] && return
+  local event_type="$1" level="${2:-info}" step="${3:-null}" payload="$4"
+  printf '{"timestamp":"%s","run_id":"%s","skill":"learn-codebase","event_type":"%s","level":"%s","step":%s,"payload":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$RUN_ID" "$event_type" "$level" \
+    "$([ "$step" = "null" ] && echo "null" || printf '"%s"' "$step")" \
+    "${payload:-{\}}" >> "$LOG_FILE"
+}
+
+assert_artifact() {
+  local path="$1" label="${2:-$1}"
+  if [ ! -s "$path" ]; then
+    echo "GATE FAIL: required artifact missing or empty: $label"
+    echo "The preceding step did not complete. Halting."
+    exit 1
+  fi
+}
+
+assert_approved() {
+  local path="$1" label="${2:-$1}"
+  if ! grep -q '"approved":.*true' "$path" 2>/dev/null; then
+    echo "GATE FAIL: human approval required."
+    echo "Edit $label and set \"approved\": true, then re-run from this step."
+    exit 1
+  fi
+}
+```
+
+`AMS_HOME` must be the absolute path to the AMS checkout. Adjust if the cwd
+differs from the canonical location.
+
+---
+
 ## Run logging (mandatory, threads through every step)
 
-**Every learn-codebase invocation produces a structured run log** written to
-`<ams-root>/logs/learn-codebase-<iso-timestamp>-<run-id>.jsonl`. Schema and
-helper definitions are in `procedures/ams-audit-logging.md`.
+Every invocation produces a structured run log at:
+`$AMS_HOME/logs/learn-codebase-<ISO_TIMESTAMP>-<RUN_ID>.jsonl`
 
-### At invocation start (before Step 0)
+Schema and event taxonomy: `procedures/ams-audit-logging.md`.
 
-1. Generate a UUIDv4 as `RUN_ID`.
-2. Resolve `AMS_HOME` (the path to this AMS checkout — typically the cwd when
-   the skill is invoked).
-3. Compute `LOG_FILE=$AMS_HOME/logs/learn-codebase-$(date -u +%Y-%m-%dT%H-%M-%S)-$RUN_ID.jsonl`.
-4. Ensure `$AMS_HOME/logs/` exists.
-5. Define the `emit_event` bash helper per `procedures/ams-audit-logging.md`.
-6. Emit `invocation_start` with payload:
-   ```json
-   { "args": ["<target-path>", "--strict|--reconfigure-integrations|..."],
-     "cwd": "<cwd>", "ams_version": "v2.1", "target": "<absolute target path>",
-     "run_log": "<LOG_FILE absolute path>" }
-   ```
-7. Emit `claude_mem_project_id_resolved` immediately after probing
-   claude-mem health (Step 0): payload `{ "auto_detected_id": "<from cwd>",
-   "target_basename": "<basename of target path>", "id_will_be_used":
-   "<which id learn-codebase will tag synthetic observations with>",
-   "reason": "..." }`. **This event surfaces project-ID misroute risk at run start.**
+### Invocation-start block (run once, before Step 0)
 
-### At each Step boundary
+```bash
+AMS_HOME="C:/Repositories/agent-management-studio"
+RUN_ID="$(python3 -c 'import uuid; print(uuid.uuid4())')"
+mkdir -p "$AMS_HOME/logs"
+TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%S)"
+LOG_FILE="$AMS_HOME/logs/learn-codebase-${TIMESTAMP}-${RUN_ID}.jsonl"
+ARTIFACT_DIR="$AMS_HOME/logs/.run-$RUN_ID"
+mkdir -p "$ARTIFACT_DIR"
 
-Emit `step_start` (with `step_id` matching the step number, `step_name`
-matching the heading) before doing the step's work; emit `step_end` after,
-with `outcome: "success" | "failure" | "skipped"` and `duration_ms`.
+echo "$LOG_FILE" > "$AMS_HOME/logs/.current-run-log"
+echo "$RUN_ID"   > "$AMS_HOME/logs/.current-run-id"
 
-### At each substantive event within a step
+# emit_event is defined in the standard preamble above; define inline here too
+emit_event() {
+  local event_type="$1" level="${2:-info}" step="${3:-null}" payload="$4"
+  printf '{"timestamp":"%s","run_id":"%s","skill":"learn-codebase","event_type":"%s","level":"%s","step":%s,"payload":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" "$RUN_ID" "$event_type" "$level" \
+    "$([ "$step" = "null" ] && echo "null" || printf '"%s"' "$step")" \
+    "${payload:-{\}}" >> "$LOG_FILE"
+}
 
-Use the event taxonomy in `procedures/ams-audit-logging.md`:
+emit_event "invocation_start" "info" "null" \
+  "{\"args\":[\"$TARGET_PATH\"],\"cwd\":\"$(pwd)\",\"ams_version\":\"v2.2\",\"run_log\":\"$LOG_FILE\"}"
+```
+
+Prune logs older than 7 days OR beyond the most-recent 50 at invocation start.
+
+### At each step boundary
+
+Emit `step_start` before work; `step_end` after with `outcome` and `duration_ms`.
+
+### Event taxonomy
 
 | When | Emit |
 |---|---|
-| Probing claude-mem / Bun / a CLI / an MCP | `dependency_probe` (and `dependency_remediation` if action taken) |
-| Writing any file to target's `.claude/` | `artifact_write` with path, bytes, sha256 |
+| Probing a dependency | `dependency_probe` |
+| Writing to target `.claude/` | `artifact_write` with path, bytes, sha256 |
 | Skipping a planned write | `artifact_skip` with reason |
-| Step 4 — proposing the cognitive team | `cognitive_team_proposed` then (after dev review) `cognitive_team_approved` |
-| Step 4b — generating each domain skill | `domain_skill_generated` per tech |
-| Step 6 — pattern detected | `pattern_detected` |
-| Step 7 — approach detected | `approach_detected` |
-| Step 8 — prescriptive rule generated | `prescriptive_rule_generated` |
-| Step 11 — `.git/info/exclude` write | `gitignore_update` with `entries_added` |
-| Step 12 — synthetic observation seeded | `claude_mem_observation_seeded` per observation |
+| Step 4 team proposal/approval | `cognitive_team_proposed`, `cognitive_team_approved` |
+| Step 4b each domain skill | `domain_skill_generated` |
+| Step 6 each pattern | `pattern_detected` |
+| Step 7 each approach | `approach_detected` |
+| Step 8 each rule | `prescriptive_rule_generated` |
 | Any human review point | `human_gate` |
-| Any non-fatal anomaly | `warn` |
-| Any fatal failure | `error` (with the original exception detail) |
+| Non-fatal anomaly | `warn` |
+| Fatal failure | `error` |
 
 ### At invocation end
 
-Emit `invocation_end` with:
+Emit `invocation_end`:
 ```json
-{ "outcome": "success" | "failure" | "stopped",
+{ "outcome": "success|failure|stopped",
   "duration_ms": <total>,
   "summary": {
     "steps_completed": <n>, "steps_skipped": <n>,
     "artifacts_written": <n>, "patterns_detected": <n>,
     "approaches_detected": <n>, "guard_rails_extracted": <n>,
     "prescriptive_rules_generated": <n>,
-    "synthetic_observations_seeded": <n>,
-    "claude_mem_project_id_used": "<id>"
+    "domain_skills_generated": <n>,
+    "synthetic_observations_seeded": <n>
   }
 }
 ```
 
+Then clean up sidecar files and artifact directory:
+```bash
+rm -f "$AMS_HOME/logs/.current-run-log" "$AMS_HOME/logs/.current-run-id"
+rm -rf "$ARTIFACT_DIR"
+```
+
 ### Error path
 
-On any unhandled error, emit `error` with full context, then `invocation_end`
-with `outcome: "failure"`. **Never let an exception propagate without a
-matching log entry** — that's the failure mode the smoke test surfaced
-(silent stalling).
-
-### Log retention
-
-At invocation start, prune `$AMS_HOME/logs/learn-codebase-*.jsonl` files older
-than 7 days OR beyond the most-recent 50 (whichever keeps more), per
-`procedures/ams-audit-logging.md`.
+On any unhandled error: emit `error`, then `invocation_end` with
+`outcome: "failure"`, then clean up sidecars. Never let a failure propagate
+silently.
 
 ---
 
 ## Step 0 — Preflight
 
+**Assertions at step start:** none (this is the first step).
+
 Emit `step_start` with `step_id: "0"`, `step_name: "preflight"`.
 
-Each probe below emits a `dependency_probe` event with `dependency`,
-`outcome`, `details`. **Any failed hard probe halts execution**: emit
-`error`, `invocation_end` with `outcome: "failure"`, and stop. Do NOT
-proceed with a partial seed — that's the failure mode the smoke test exposed.
+Hard probes — any failure emits `error` + `invocation_end` + halts:
 
-1. **Hard: claude-mem worker reachable.** `curl -sf --max-time 5
-   http://127.0.0.1:37777/api/health`. (Note: 5-second timeout, not 2 — worker
-   under load may take longer to respond.) On unreachable:
-   - Emit `dependency_probe` with `outcome: "unreachable"` and the
-     remediation hint `npx claude-mem start`.
-   - Emit `error` and stop. **Do NOT continue.** This is the issue-4 fix —
-     learn-codebase REQUIRES claude-mem; soft-fail is wrong here.
-2. **Hard: Bun installed.** `bun --version`. On missing: emit `error` and stop.
-3. **Hard: target path is a git repo.** Verify directory exists and contains
-   `.git/`. On failure: emit `error` and stop.
-4. **Resolve and log claude-mem project IDs (the v2.1 fix for issue 2).**
-   - Probe claude-mem's project resolution from this cwd: hit `/api/search`
-     with a no-op query and inspect what project tag it returns, OR read
-     `~/.claude-mem/observer-sessions/` for the most recent session's
-     project field.
-   - Compute `target_basename = basename(<target-path>)` (e.g.
-     `aceik-sandpit-xmc`).
-   - Decide which project ID to use for synthetic observations in Step 12 —
-     **always `target_basename`**, never the auto-detected AMS-side ID.
-   - Emit `claude_mem_project_id_resolved` with full payload as defined in
-     the Run logging section.
-5. **`cd` into target before any further work.** This is the v2.1 fix for the
-   project-ID misroute: by changing cwd into the target before the file sweep,
-   claude-mem's auto-detection picks up the target's basename. (If `cd`
-   into target is impractical for the AMS skill execution model, alternative:
-   set `CLAUDE_MEM_SKIP_TOOLS += Read` for the sweep duration and emit one
-   bulk synthetic observation in Step 12 with explicit `project: "<target_basename>"`.)
-6. **Check for existing seed.** If `<target>/.claude/config.json` exists with
-   `environment_snapshot`, route to update-or-rebuild prompt:
-   - **(a) Update** — invoke `update` skill in the target instead of full
-     rebuild. Preserves existing assembly + manual edits.
-   - **(b) Full rebuild** — proceed with this procedure. Warn that existing
-     prescriptive artifacts will be replaced.
-   - Emit `human_gate` with the decision.
+1. **claude-mem worker reachable:** `curl -sf --max-time 5 http://127.0.0.1:37777/api/health`
+   On failure: emit `dependency_probe` with `outcome: "unreachable"`,
+   remediation hint `npx claude-mem start`. Stop — do not continue with a
+   partial seed.
+2. **Bun installed:** `bun --version`. On missing: emit `error` and stop.
+3. **Target path is a git repo:** directory exists and contains `.git/`.
+   On failure: emit `error` and stop.
+4. **Resolve claude-mem project ID:**
+   - `target_basename = basename(<target-path>)`
+   - Synthetic observations in Step 12 always use `target_basename` — never
+     the auto-detected AMS-side ID.
+   - Emit `claude_mem_project_id_resolved` with `target_basename` and reason.
+5. **Check for existing seed:** if `<target>/.claude/config.json` exists with
+   `environment_snapshot`, offer update-vs-rebuild prompt. Emit `human_gate`
+   with the decision.
 
-Emit `step_end` for Step 0 before proceeding.
+**Artifact produced:** write `$ARTIFACT_DIR/run-state.json`:
+```json
+{
+  "run_id": "<RUN_ID>",
+  "ams_home": "<AMS_HOME>",
+  "target_path": "<TARGET_PATH>",
+  "target_basename": "<TARGET_BASENAME>",
+  "log_file": "<LOG_FILE>",
+  "started_at": "<ISO>",
+  "flags": ["--strict"],
+  "preflight_passed": true
+}
+```
 
-### Step 0.5 — Early gitignore protection (the v2.1 fix for issue 1)
-
-**Move the `.git/info/exclude` write to here, before any file is seeded.**
-
-Originally Step 11; promoted to Step 0.5 because partial-failure scenarios
-must not leave a window where seeded `.claude/` files are git-visible.
-
-1. Append `.claude/` (or finer-grained subdirs per
-   `assembly.gitignore_granularity` if set) to
-   `<target>/.git/info/exclude`. Idempotent — check for existing entry first.
-2. Emit `gitignore_update` with `target`, `entries_added`,
-   `entries_already_present`.
-3. **NEVER touch the tracked `.gitignore`.** That's the no-AI-footprint rule.
-
-If this step fails (permissions, not a git repo, etc.): emit `error` and stop.
-The seed must not proceed if the protection layer can't be established.
+Emit `step_end` for Step 0.
 
 ---
 
-## Step 1 — File sweep (one pass, both outputs)
+## Step 0.5 — Early gitignore protection
 
-AMS reads every source file in the target. Each Read fires claude-mem's
-`PreToolUse(Read)` and `PostToolUse(*)` hooks; observations are captured
-passively. **Do NOT separately invoke claude-mem's `learn-codebase` skill** —
-that would be a redundant second sweep.
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/run-state.json" "run-state.json (Step 0)"
+```
 
-For repos with thousands of source files, consider temporarily appending
-`Read` to `CLAUDE_MEM_SKIP_TOOLS` in `~/.claude-mem/settings.json` for the
-sweep duration, then emit a single bulk synthetic observation at the end. (For
-v1, observe the cost during a real sweep before deciding whether this
-mitigation is necessary.)
+Append `.claude/` to `<target>/.git/info/exclude` before any file is seeded.
+Idempotent — check for existing entry first. **NEVER touch the tracked
+`.gitignore`.**
+
+If this step fails (permissions, not a git repo, etc.): emit `error` and stop.
+The seed must not proceed without the protection layer.
+
+**Artifact produced:** write `$ARTIFACT_DIR/gitignore.done`:
+```json
+{"step": "gitignore-protection", "target": "<target>", "entries_added": [".claude/"], "completed_at": "<ISO>"}
+```
+
+Emit `gitignore_update` with `entries_added` and `entries_already_present`.
+
+---
+
+## Step 1 — File sweep
+
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/run-state.json"   "run-state.json (Step 0)"
+assert_artifact "$ARTIFACT_DIR/gitignore.done"   "gitignore.done (Step 0.5)"
+```
+
+Read every source file in the target. Each Read fires claude-mem hooks;
+observations are captured passively. **Do NOT separately invoke claude-mem's
+`learn-codebase` skill** — that would be a redundant second sweep.
 
 Files to read:
 - All source files (by extension, language-aware)
-- All `package.json`, `*.csproj`, `*.sln`, `pom.xml`, `build.gradle`,
+- `package.json`, `*.csproj`, `*.sln`, `pom.xml`, `build.gradle`,
   `requirements.txt`, `pyproject.toml`, `Cargo.toml`, `go.mod`
-- All config files: `tsconfig.json`, `.eslintrc*`, `.prettierrc*`,
+- Config files: `tsconfig.json`, `.eslintrc*`, `.prettierrc*`,
   `tailwind.config.*`, `next.config.*`, `nuxt.config.*`, `vite.config.*`,
   `webpack.config.*`, `jest.config.*`, `vitest.config.*`
 - `Dockerfile*`, `docker-compose*`, `compose.yaml`
@@ -208,194 +299,384 @@ Files to read:
   `BUILD.md`, `DEPLOY.md`, `DEPLOYMENT.md`, `SETUP.md`, `INSTALL.md`,
   `AGENT.md`, `agent-instructions.md`
 
+**Artifact produced:** write `$ARTIFACT_DIR/sweep-manifest.json`:
+```json
+{
+  "files_read": ["<path1>", "<path2>", "..."],
+  "file_count": <n>,
+  "completed_at": "<ISO>"
+}
+```
+
 ---
 
 ## Step 2 — Stack detection
 
-Produce structured `environment_snapshot`:
-- `runtime` — Node version, Python version, .NET version, etc.
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/sweep-manifest.json" "sweep-manifest.json (Step 1)"
+```
+
+Produce structured `environment_snapshot` from the files in `sweep-manifest.json`:
+- `runtime` — Node, Python, .NET version etc.
 - `package_manager` — npm/pnpm/yarn/poetry/nuget version
 - `frameworks` — primary frameworks with exact versions
 - `testing` — test runners, e2e tools, visual regression
-- `linting` — ESLint, Prettier, etc.
+- `linting` — ESLint, Prettier etc.
 - `key_dependencies` — significant libraries (state, styling, validation)
 - `structure` — monorepo vs single-app, src layout, package directories
-- `content_hashes` — SHA-256 of patterns.md and approaches.md (initially
-  `pending-first-write`)
 
 **Human gate:** present scan results to dev. Confirm detected stack is correct.
-Allow corrections.
+Allow corrections. Do NOT write the artifact until the dev has confirmed.
+
+**Artifact produced:** write `$ARTIFACT_DIR/environment-snapshot.json` with
+all fields above, and initially `"approved": false`. After dev confirmation,
+set `"approved": true` in the file. Downstream steps will fail their
+`assert_approved` check until this is done.
+
+```json
+{
+  "schema_version": 1,
+  "runtime": { ... },
+  "package_manager": { ... },
+  "frameworks": { ... },
+  "testing": { ... },
+  "linting": { ... },
+  "key_dependencies": { ... },
+  "structure": { ... },
+  "approved": true
+}
+```
+
+Emit `human_gate` with the dev's response.
 
 ---
 
 ## Step 3 — Build/deploy intelligence
 
-Solves the requirement: *"the skill needs to learn and have tested a very key
-element. How to build the solution and how to deploy the solution."*
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/environment-snapshot.json" "environment-snapshot.json (Step 2)"
+assert_approved "$ARTIFACT_DIR/environment-snapshot.json" "environment-snapshot.json"
+```
 
 ### Documentation-first
 
 Read `README.md`, `CONTRIBUTING.md`, `BUILD.md`, `DEPLOY.md`, etc. (already
-read in Step 1; analyse now). Extract any documented build/test/deploy commands
-verbatim with their location.
+in sweep-manifest; analyse now). Extract documented build/test/deploy commands
+verbatim with their source file and line number.
 
 ### Code-second
 
 Inspect:
-- `package.json` `scripts` section — which scripts are canonical?
+- `package.json` `scripts` section
 - Makefile / Taskfile.yml / justfile — top-level targets
 - `*.csproj` / `*.sln` — MSBuild targets
 - `Dockerfile` / `docker-compose.yml` — container build steps
 - `turbo.json` / `nx.json` — pipeline definitions
-- `sitecore.json` / Sitecore CLI configs / TDS / Unicorn — content
-  serialization commands
-- CI/CD pipeline files — what does CI actually run for build/test/deploy?
+- `sitecore.json` / Sitecore CLI configs — serialization commands
+- CI/CD pipeline files — what does CI actually run?
 
 ### Solution-type classification
 
 Match against `registries/build-deploy-signatures.json`:
-
-- **headless** — Next.js / Nuxt / SvelteKit / etc.; deploy to Vercel /
-  Netlify / Cloudflare Pages / etc.
-- **dotnet** — .csproj/.sln present; build via dotnet/MSBuild; deploy varies
-- **sitecore-xmc** — `sitecore.json` + `*.scproj` + TDS/Unicorn signals;
-  Sitecore CLI; container dev environment; content-sync separate from code
-  build
-- **sitecore-jss** — Sitecore JSS app (mix of headless + Sitecore content)
+- **headless** — Next.js / Nuxt / SvelteKit; Vercel / Netlify / Cloudflare
+- **dotnet** — .csproj/.sln; dotnet/MSBuild
+- **sitecore-xmc** — `sitecore.json` + `*.scproj` + SCS signals
+- **sitecore-jss** — Sitecore JSS (headless + content)
 - **hybrid-sitecore-content-sdk** — Next.js + Sitecore Content SDK
 - **other** — fallback; surface signature for human classification
 
 ### Synthesis — one canonical command per concern
 
-Reconcile docs vs code. Conflicts are common (docs outdated, code incomplete).
-Surface conflicts to the dev. Produce:
-- `canonical_build` (e.g. `pnpm turbo run build`)
-- `canonical_test` (e.g. `pnpm turbo run test`)
-- `canonical_deploy` (when applicable in dev workflow)
+Reconcile docs vs code. Surface conflicts to dev. Produce:
+- `canonical_build`, `canonical_test`, `canonical_deploy`
 - `canonical_content_sync` (Sitecore-style only)
 - `prerequisites` — env vars, services, credentials needed
 
-Write to seeded `.claude/build-deploy.md` and into
-`config.json.environment_snapshot.build_deploy`.
+Do NOT auto-execute commands. Surface for manual verification.
 
-### v1: do NOT auto-execute
+**Artifact produced:** write `$ARTIFACT_DIR/build-deploy.json`:
+```json
+{
+  "solution_type": "...",
+  "canonical_build": "...",
+  "canonical_test": "...",
+  "canonical_deploy": "...",
+  "canonical_content_sync_push": "...",
+  "canonical_content_sync_pull": "...",
+  "prerequisites": [ "..." ],
+  "conflicts_surfaced": [ "..." ],
+  "completed_at": "<ISO>"
+}
+```
 
-Surface canonical commands; recommend dev verifies manually. Auto-execution
-in a sandbox is v2.
+Also write `<target>/.claude/build-deploy.md` (human-readable version).
+Emit `artifact_write` for `build-deploy.md`.
 
 ---
 
-## Step 4 — Cognitive team proposal (v2)
+## Step 6 — Pattern detection
+
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/sweep-manifest.json" "sweep-manifest.json (Step 1)"
+assert_artifact "$ARTIFACT_DIR/build-deploy.json"   "build-deploy.json (Step 3)"
+```
+
+Scan codebase for recurring coding patterns. Default mode produces descriptive
+patterns; `--strict` produces hard rules.
+
+@procedures/shared/diff-engine.md *(used for pattern recognition signals)*
+
+Categories to scan: state management, data fetching, error handling, file
+organization, naming conventions, test patterns, component patterns, API
+patterns, CMS wrapper patterns (Sitecore-aware), deployment patterns.
+
+**Strict mode output format** (each pattern):
+```
+RULE: <constraint>
+DO <permitted action> ONLY when <condition>
+DO NOT <prohibited action>
+RATIONALE: <evidence: file paths with line numbers, counts>
+EXAMPLE (correct): <code snippet>
+EXAMPLE (wrong): <code snippet>
+```
+
+**Artifact produced:** write `<target>/.claude/patterns.md`.
+Emit `pattern_detected` per pattern found.
+Emit `artifact_write` for `patterns.md` with byte count and sha256.
+
+---
+
+## Step 7 — Approach detection
+
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/sweep-manifest.json"  "sweep-manifest.json (Step 1)"
+# patterns.md must exist — Step 6 must have completed
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/patterns.md"   "patterns.md (Step 6)"
+```
+
+Scan for architectural approaches. Default produces descriptive; `--strict`
+produces APPROACH/BOUNDARY/RATIONALE/GUARD RAILS.
+
+Categories: authentication, database access, deployment, environment config,
+logging, monitoring, content serialization (Sitecore), CMS wrapper strategy,
+multi-package boundaries.
+
+**Strict mode output format**:
+```
+APPROACH: <what is used and where>
+BOUNDARY:
+  DO <permitted actions>
+  DO NOT <prohibited actions>
+RATIONALE: <human context + evidence>
+GUARD RAILS:
+  - <file path or resource> — <constraint>
+```
+
+GUARD RAILS must be machine-parseable into `prescriptive-rules.json` in Step 8.
+Each guard rail line must follow the exact format:
+```
+  - <path or glob> — <READ ONLY|BLOCK|MODIFY WITH CAUTION> [for agents|description]
+```
+
+**Artifact produced:** write `<target>/.claude/approaches.md`.
+Emit `approach_detected` per approach found.
+Emit `artifact_write` for `approaches.md` with byte count and sha256.
+
+---
+
+## Step 8 — Generate `prescriptive-rules.json`
+
+**Assertions at step start:**
+```bash
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/approaches.md" "approaches.md (Step 7)"
+```
+
+Parse GUARD RAILS sections from `approaches.md`. For each guard rail line:
+
+```
+- packages/ui/src/styles/theme-1.css — READ ONLY for all agents
+```
+
+Emit a rule:
+
+```json
+{
+  "id": "theme-tokens-readonly",
+  "tools": ["Edit", "Write"],
+  "match": {"path_glob": "packages/ui/src/styles/theme-*.css"},
+  "action": "block",
+  "reason": "GUARD RAIL: theme-1.css is READ ONLY for all agents. Reserved for humans. See approaches.md."
+}
+```
+
+The parser must handle:
+- File path patterns (glob → `path_glob`)
+- Bash command patterns (regex → `command_regex`)
+- Multi-file rules (cross-package boundaries)
+
+On parse failure for any single guard rail: emit `warn` with the unparsed
+line; continue parsing remaining entries. Surface all unparsed entries to dev
+at end of step.
+
+**Artifact produced:** write `<target>/.claude/prescriptive-rules.json`.
+Emit `prescriptive_rule_generated` per rule.
+Emit `artifact_write` for `prescriptive-rules.json`.
+
+---
+
+## Step 4 — Cognitive team proposal
+
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/environment-snapshot.json" "environment-snapshot.json (Step 2)"
+assert_approved "$ARTIFACT_DIR/environment-snapshot.json" "environment-snapshot.json"
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/patterns.md"        "patterns.md (Step 6)"
+assert_artifact "$TARGET_PATH/.claude/approaches.md"      "approaches.md (Step 7)"
+assert_artifact "$TARGET_PATH/.claude/prescriptive-rules.json" "prescriptive-rules.json (Step 8)"
+```
 
 Cognitive harnesses are HOW agents think; domain skills (Step 4b) are WHAT
-they know. This step decides the team shape; Step 4b generates the per-tech
+they know. This step decides the team shape; Step 4b generates per-tech
 domain knowledge.
 
 ### Default-team proposal heuristics
 
-Based on stack signals + project shape, propose a default cognitive team for
-this project. Heuristics:
-
 | Project signal | Suggested default team | Reason |
 |---|---|---|
-| UI-heavy (React + Tailwind/Radix + Storybook) | `[empiricist, specifist, synthesizer]` + accessibility lens | Specifist for UI detail; synthesizer to integrate UI patterns; accessibility always-on |
-| Sitecore + accelerator + monorepo | `[architect, empiricist, specifist, synthesizer]` | Architect for cross-package boundaries; specifist for Sitecore wrapper edge cases |
-| .NET backend | `[skeptic, empiricist, architect]` + security lens | Backend services need adversarial security review; architect for API boundary design |
-| Greenfield prototype | `[pragmatist, synthesizer]` | Move fast; synthesize early patterns |
-| Compliance-heavy / regulated | `[systematist, skeptic, empiricist]` + security lens + devils-advocate lens | Process completeness + adversarial check |
-
-Adjust per detected solution-type and any human-supplied hints.
+| UI-heavy (React + Tailwind/Radix + Storybook) | `[empiricist, specifist, synthesizer]` + accessibility lens | Specifist for UI detail; synthesizer to integrate UI patterns |
+| Sitecore + accelerator + monorepo | `[architect, empiricist, specifist, synthesizer]` | Architect for cross-package boundaries |
+| .NET backend | `[skeptic, empiricist, architect]` + security lens | Backend services need adversarial review |
+| Greenfield prototype | `[pragmatist, synthesizer]` | Move fast |
+| Compliance-heavy | `[systematist, skeptic, empiricist]` + security + devils-advocate | Process completeness |
 
 ### Primary harness for single-mode
-
-The single-agent default for routine work. Typically `empiricist` unless the
-project has a distinctive shape:
 
 | Project shape | primary_harness_for_single_mode |
 |---|---|
 | (default) | `empiricist` |
 | Compliance-heavy | `systematist` |
 | Prototype-heavy | `pragmatist` |
-| Architectural-decision-heavy | `architect` *(but expensive — Opus)* |
+| Architectural-decision-heavy | `architect` *(expensive — Opus)* |
 
-For most projects: `empiricist`.
-
-### Audit primary harness (optional override)
-
-Some projects benefit from a non-default harness for `audit-work` single
-mode:
+### Audit primary harness
 
 | Project shape | audit_primary_harness |
 |---|---|
-| (default — same as primary) | `empiricist` |
+| (default) | `empiricist` |
 | Security-sensitive | `skeptic` |
 | Architecture-debt-heavy | `architect` |
 
 ### Default lenses
 
-Always-on lenses for this project:
-
 | Project signal | default_lenses |
 |---|---|
 | UI-heavy / consumer-facing | `[accessibility]` |
 | Security-sensitive (auth, payments, PII) | `[security]` |
-| Performance-critical (real-time, render-heavy) | `[performance]` |
+| Performance-critical | `[performance]` |
 
-Multiple lenses can apply.
+### Work item prefix derivation
+
+Derive `WORK_ITEM_PREFIX` from target repo name: take first letter of each
+hyphen-separated word, uppercase, max 3 chars.
+Examples: `aceik-sandpit-xmc` → `ASX`; `my-app` → `MA`.
 
 ### Human review gate
 
-Surface the proposed team to the dev:
+Surface the proposed team AND derived prefix to the dev:
 
 ```
 COGNITIVE TEAM PROPOSAL — <project-name>
 
-Default team (engaged when "team" / "swarm" / "second opinion" mentioned):
-  - empiricist     (Sonnet)
-  - specifist      (Sonnet)
-  - synthesizer    (Opus)
+Default team:
+  - empiricist  (Sonnet)
+  - specifist   (Sonnet)
+  - synthesizer (Opus)
 
-Single-agent default (engaged silently for routine work):
-  - empiricist (Sonnet)
-
-Audit-work single default:
-  - skeptic (Sonnet) — adversarial baseline for audits
-
-Default lenses (always-on):
-  - accessibility
+Single-agent default: empiricist (Sonnet)
+Audit-work default:   skeptic (Sonnet)
+Default lenses:       accessibility
+Work item prefix:     ASX
 
 Approve, modify, or override?
 ```
 
-Dev can: accept / modify (swap harnesses, lenses) / specify per-altitude
-overrides.
+Dev can accept / modify (swap harnesses, lenses, prefix).
+
+**Artifact produced:** write `$ARTIFACT_DIR/cognitive-team.json` with
+`"approved": false` initially. After dev confirmation, set `"approved": true`.
+
+```json
+{
+  "cognitive_team": ["empiricist", "specifist", "synthesizer"],
+  "primary_harness_for_single_mode": "empiricist",
+  "audit_primary_harness": "skeptic",
+  "default_lenses": ["accessibility"],
+  "altitude_band_default": "maker",
+  "synthesis_harness": "synthesizer",
+  "work_item_prefix": "ASX",
+  "approved": true
+}
+```
+
+Emit `human_gate` and `cognitive_team_approved` after confirmation.
 
 ---
 
-## Step 4b — Dynamic domain-skill generation (v2)
+## Step 4b — Dynamic domain-skill generation
 
-For each detected major technology, **generate a project-specific domain
-skill** with proximity triggers. **No templating** — the skill is bespoke
-to this project.
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/cognitive-team.json"       "cognitive-team.json (Step 4)"
+assert_approved "$ARTIFACT_DIR/cognitive-team.json"       "cognitive-team.json"
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/patterns.md"        "patterns.md (Step 6)"
+assert_artifact "$TARGET_PATH/.claude/approaches.md"      "approaches.md (Step 7)"
+```
+
+For each detected major technology, generate a project-specific domain skill.
+
+### Granularity constraint: umbrella, not fine-grained
+
+**One domain skill per major tech category.** Internal sections cover
+sub-concerns. Target: 6–10 domain skills per project.
+
+Canonical tech categories and their umbrella skill names:
+
+| Tech signals detected | Umbrella skill name |
+|---|---|
+| `@sitecore-content-sdk/*`, `@sitecore-feaas/*`, `sitecore.json`, `*.scproj` | `sitecore-knowledge` |
+| `next`, `@next/*` | `nextjs-knowledge` |
+| `tailwindcss`, `@radix-ui/*`, `class-variance-authority` | `tailwind-radix-knowledge` |
+| `@mantine/*` | `mantine-knowledge` |
+| `turbo`, `turbo.json`, `nx.json` | `monorepo-turbo-knowledge` |
+| `@storybook/*` | `storybook-knowledge` |
+| `docker`, `Dockerfile` | `docker-knowledge` |
+
+Do NOT create separate skills for sub-concerns of an umbrella (e.g. do NOT
+create `sitecore-serialization-knowledge`, `sitecore-xmc-knowledge`, AND
+`sitecore-content-sdk-knowledge` separately — these all belong inside
+`sitecore-knowledge`). If a tech doesn't match a canonical category, use
+`<tech>-knowledge` and note it in `domain-skills-manifest.json`.
 
 ### Per-tech generation
 
-For each tech detected (Sitecore, Next.js, Tailwind+Radix, Turborepo, etc.):
+For each umbrella skill:
 
-1. **Pull the registry slice:**
-   - From `registries/tech-mcp-map.json`: MCPs, CLIs, specialists,
-     `official_docs_url`
-   - From `registries/mcp-catalogue.json`: detailed MCP metadata for any
-     MCPs in the slice
-   - From `registries/tool-crud-profile.json`: CRUD-truthfulness for the
-     slice's tools
+1. **Pull the registry slice** from `registries/tech-mcp-map.json`,
+   `registries/mcp-catalogue.json`, `registries/tool-crud-profile.json`.
 
-2. **Extract the project-specific slice from analysis:**
+2. **Extract project-specific context** from:
    - GUARD RAILS in `approaches.md` mentioning this tech
    - Patterns in `patterns.md` mentioning this tech
-   - CLI commands actually used in this project (from CI configs, scripts,
-     dev workflow docs)
-   - File patterns / paths where this tech is in use
+   - CLI commands from `build-deploy.json` relevant to this tech
+   - File paths in `sweep-manifest.json` where this tech appears
 
 3. **Generate the domain skill body:**
 
@@ -418,335 +699,252 @@ description: |
 <extracted slice of approaches.md for this tech>
 
 ## CLI commands used in this project
-<canonical commands from build-deploy.md slice + project-specific usage>
+<canonical commands from build-deploy.json slice>
 
 ## MCP methods (when applicable)
 <curated list from mcp-catalogue with concrete invocation examples>
 
 ## Doc fallback
-If uncertain about implementation, search the official documentation at
-<official_docs_url> before improvising. For version-specific behaviour,
-include the version (this project uses <version>) in your search.
+If uncertain, search <official_docs_url> before improvising.
+This project uses version <version>.
 ```
 
-4. **Write to seeded `.claude/skills/<tech>-knowledge/SKILL.md`.**
+4. Write to `<target>/.claude/skills/<skill-name>/SKILL.md`.
+   Emit `domain_skill_generated` and `artifact_write` per skill.
 
-### Granularity: umbrella, not fine-grained
+### Storybook special case (mandatory when detected)
 
-One domain skill per major tech, not per sub-concern. Internal sections
-cover sub-concerns (e.g. `sitecore-knowledge` covers content-sync, wrappers,
-JSS, CLI usage all together — Claude reads relevant sections based on
-proximity). Aim: 6-10 domain skills per project, not 30-50.
+If Storybook is in `sweep-manifest.json`, `storybook-knowledge` MUST include
+`*.stories.tsx`, `*.stories.ts`, `*.stories.jsx` as explicit file-pattern
+proximity triggers and the phrase **"MANDATORY PRE-CONDITION: invoke this
+skill before writing any .stories.tsx file"** in the description.
 
-### Proximity triggers
+The skill body MUST include a Testing API section: `@storybook/test` play
+functions, `userEvent`, `expect`, component interaction assertions, Playwright
+run commands, and a complete story example with `play` function.
 
-The skill's `description` field is the proximity trigger. It should mention:
-- Specific file path patterns (e.g. `packages/ui-sitecore/**/*.tsx`)
-- Distinctive imports (e.g. `@sitecore-content-sdk/*`)
-- Technology keywords likely in dev prompts
-
-Description tightness matters — a vague description ("Use when working with
-Next.js") triggers too eagerly across unrelated work; a specific description
-("Use when editing files in apps/xmc-shadcn or files importing
-@sitecore-jss/*") triggers correctly.
-
-### Each domain skill is the complete legal system for its tech
-
-Self-contained: bundles patterns + approaches slice + GUARD RAILS + tools
-+ doc-fallback in one place. No `@import` to other files in the seeded
-target. Independence is preserved.
+**Artifact produced:** write `$ARTIFACT_DIR/domain-skills-manifest.json`:
+```json
+{
+  "skills_generated": ["sitecore-knowledge", "nextjs-knowledge", "..."],
+  "skill_count": <n>,
+  "completed_at": "<ISO>"
+}
+```
 
 ---
 
-## Step 5 — Assembly manifest construction (v2 three-layer schema)
+## Step 5 — Assembly manifest construction
 
-Build the assembly manifest with three separated layers:
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/environment-snapshot.json"  "environment-snapshot.json (Step 2)"
+assert_artifact "$ARTIFACT_DIR/build-deploy.json"          "build-deploy.json (Step 3)"
+assert_artifact "$ARTIFACT_DIR/cognitive-team.json"        "cognitive-team.json (Step 4)"
+assert_approved "$ARTIFACT_DIR/cognitive-team.json"        "cognitive-team.json"
+assert_artifact "$ARTIFACT_DIR/domain-skills-manifest.json" "domain-skills-manifest.json (Step 4b)"
+```
+
+Build `config.json` by combining all approved intermediate artifacts:
 
 ```json
 {
-  "project": "<project-name>",
+  "project": "<target-basename>",
   "assembly": {
     "cognitive_team": ["empiricist", "specifist", "synthesizer"],
-    "domain_knowledge": ["sitecore-knowledge", "nextjs-knowledge",
-                         "tailwind-radix-knowledge", "monorepo-turbo-knowledge"],
+    "domain_knowledge": ["sitecore-knowledge", "nextjs-knowledge", "..."],
     "default_lenses": ["accessibility"],
     "primary_harness_for_single_mode": "empiricist",
     "audit_primary_harness": "skeptic",
     "altitude_band_default": "maker",
     "synthesis_harness": "synthesizer"
-  }
+  },
+  "environment_snapshot": { "<contents of environment-snapshot.json minus 'approved' field>" },
+  "audit": {
+    "work_item_prefix": "<from cognitive-team.json>",
+    "next_counter": 1,
+    "db_path": ".claude/audit"
+  },
+  "deferred_changes": [],
+  "update_history": []
 }
 ```
 
-Write into seeded `config.json.assembly`. The harness names reference
-seeded `.claude/harnesses/<name>.md`. The domain_knowledge names reference
-generated `.claude/skills/<name>/SKILL.md`. The lens names reference
-seeded `.claude/lenses/<name>.md`.
+`domain_knowledge` array is taken directly from `domain-skills-manifest.json`
+`skills_generated`. `environment_snapshot` embeds `build-deploy.json` fields
+under `build_deploy`. The `approved` field from intermediate artifacts is
+**not** carried into `config.json` — it is only a run-time gate.
 
-**Legacy specialist mapping:** if the project benefits from explicit domain
-specialist documentation (e.g., for `define-specialist` skill to refine), a
-secondary `legacy_specialists` array can be populated with names from
-`templates/specialists/`. These are reference material, not the primary
-agent layer in v2.
+After writing, compute SHA-256 of `patterns.md` and `approaches.md` and store
+in `environment_snapshot.content_hashes`.
 
----
-
-## Step 6 — Pattern detection
-
-Scan codebase for recurring coding patterns. Default mode produces descriptive
-patterns; `--strict` produces hard rules.
-
-@procedures/shared/diff-engine.md *(used for pattern recognition signals)*
-
-Categories to scan: state management, data fetching, error handling, file
-organization, naming conventions, test patterns, component patterns, API
-patterns, CMS wrapper patterns (Sitecore-aware), deployment patterns.
-
-**Strict mode output format** (each rule):
-```
-RULE: <constraint>
-DO <permitted action> ONLY when <condition>
-DO NOT <prohibited action>
-RATIONALE: <evidence: file paths with line numbers, counts>
-EXAMPLE (correct): <code snippet>
-EXAMPLE (wrong): <code snippet>
-```
-
-Write to seeded `.claude/patterns.md`.
-
----
-
-## Step 7 — Approach detection
-
-Scan for architectural approaches. Default produces descriptive; `--strict`
-produces APPROACH/BOUNDARY/RATIONALE/GUARD RAILS.
-
-Categories: authentication, database access, deployment, environment config,
-logging, monitoring, content serialization (Sitecore), CMS wrapper strategy,
-multi-package boundaries.
-
-**Strict mode output format**:
-```
-APPROACH: <what is used and where>
-BOUNDARY:
-  DO <permitted actions>
-  DO NOT <prohibited actions>
-RATIONALE: <human context + evidence>
-GUARD RAILS:
-  - <file path or resource> — <constraint>
-```
-
-Write to seeded `.claude/approaches.md`.
-
-GUARD RAILS specifically must be machine-parseable into
-`prescriptive-rules.json` in the next step.
-
----
-
-## Step 8 — Generate `prescriptive-rules.json`
-
-Parse GUARD RAILS sections from `approaches.md`. For each guard rail:
-
-```
-- packages/ui/src/styles/theme-1.css — READ ONLY for all agents
-```
-
-Emit a rule:
-
-```json
-{
-  "id": "theme-tokens-readonly",
-  "tools": ["Edit", "Write"],
-  "match": {"path_glob": "packages/ui/src/styles/theme-*.css"},
-  "action": "block",
-  "reason": "GUARD RAIL: theme-1.css is READ ONLY for all agents. Reserved for humans. See approaches.md."
-}
-```
-
-The parser must handle:
-- File path patterns (glob → regex)
-- Bash command patterns (regex)
-- Multi-file rules (cross-package boundaries)
-
-Write to seeded `.claude/prescriptive-rules.json`. The `prescriptive-rules-block.sh`
-hook reads this file at runtime.
-
-*(Implementation note: parser schema is a collaborative design item. v1 may
-start with a hand-curated subset and expand parser coverage iteratively.)*
+**Artifact produced:** write `<target>/.claude/config.json`.
+Emit `artifact_write` for `config.json`.
 
 ---
 
 ## Step 9 — Generate per-project `tool-safety` skill
+
+**Assertions at step start:**
+```bash
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/config.json"                "config.json (Step 5)"
+assert_artifact "$TARGET_PATH/.claude/prescriptive-rules.json"    "prescriptive-rules.json (Step 8)"
+```
 
 Read `templates/tool-safety/SKILL.md.template`. Substitute:
 - `{{PROJECT_NAME}}` — target's name
 - `{{TIMESTAMP}}` — ISO-8601 now
 - `{{TOOL_PROFILE_VERSION}}` — version of `tool-crud-profile.json`
 - `{{TECH_MAP_VERSION}}` — version of `tech-mcp-map.json`
-- `{{TOOL_CRUD_TABLE}}` — markdown table of CRUD profiles for tools matched
-  to this project's stack (from `tool-crud-profile.json`)
-- `{{VERSION_CHECKS}}` — version-check commands for tools in stack
+- `{{TOOL_CRUD_TABLE}}` — markdown table of CRUD profiles for stack tools
+- `{{VERSION_CHECKS}}` — version-check commands for stack tools
 - `{{SCOPED_ACCESS_TABLE}}` — mirror of GUARD RAILS in lookup form
 
-Write to seeded `.claude/skills/tool-safety/SKILL.md`.
+**Artifact produced:** write `<target>/.claude/skills/tool-safety/SKILL.md`.
+Emit `artifact_write`.
 
 ---
 
-## Step 10 — Seed everything into target's `.claude/` (v2 layout)
+## Step 10 — Seed everything into target's `.claude/`
 
-Create `<target>/.claude/` and populate:
+**Assertions at step start:**
+```bash
+TARGET_PATH="$(python3 -c "import json; print(json.load(open('$ARTIFACT_DIR/run-state.json'))['target_path'])")"
+assert_artifact "$TARGET_PATH/.claude/config.json"                     "config.json (Step 5)"
+assert_artifact "$TARGET_PATH/.claude/prescriptive-rules.json"         "prescriptive-rules.json (Step 8)"
+assert_artifact "$TARGET_PATH/.claude/patterns.md"                     "patterns.md (Step 6)"
+assert_artifact "$TARGET_PATH/.claude/approaches.md"                   "approaches.md (Step 7)"
+assert_artifact "$TARGET_PATH/.claude/skills/tool-safety/SKILL.md"    "tool-safety/SKILL.md (Step 9)"
+assert_artifact "$ARTIFACT_DIR/domain-skills-manifest.json"           "domain-skills-manifest.json (Step 4b)"
+```
+
+Copy the remaining static artifacts from AMS into `<target>/.claude/`:
 
 ```
 .claude/
-├── settings.json                # from templates/hooks/settings.json.template
-├── hooks/
-│   └── scripts/
-│       ├── setup-probe.sh
-│       ├── session-init.sh
-│       ├── prompt-anchor.sh
-│       ├── commit-clean-pre-bash.sh
-│       └── prescriptive-rules-block.sh
-├── harnesses/                   # v2: cognitive harnesses (the "team")
-│   ├── empiricist.md            # verbatim from harnesses/
-│   ├── specifist.md
-│   ├── synthesizer.md
-│   └── ...                      # only those listed in assembly.cognitive_team
-│                                # plus primary_harness_for_single_mode
-│                                # plus audit_primary_harness
-├── lenses/                      # v2: concern lens overlays
-│   ├── accessibility-lens.md    # verbatim from lenses/
-│   └── ...                      # only those in default_lenses + the four standard ones
-├── posture.md                   # verbatim from templates/universal/
-├── standards/
-│   ├── craft.md
-│   ├── safety.md
-│   ├── usability.md
-│   └── prose.md
-├── specialists/                 # legacy reference; only if assembly.legacy_specialists set
-├── skills/
-│   ├── update/SKILL.md                       # procedures/update.md inlined
-│   ├── deliver-work/SKILL.md                 # procedures/deliver-work.md inlined
-│   ├── audit-work/SKILL.md                   # procedures/audit-work.md inlined
-│   ├── finding/SKILL.md
-│   ├── define-specialist/SKILL.md
-│   ├── commit-clean/SKILL.md
-│   ├── jira-context/SKILL.md
-│   ├── tool-safety/SKILL.md                  # generated per-project
-│   ├── sitecore-knowledge/SKILL.md           # v2: dynamically generated per-tech
-│   ├── nextjs-knowledge/SKILL.md             # v2: dynamically generated per-tech
-│   ├── tailwind-radix-knowledge/SKILL.md     # v2: dynamically generated per-tech
-│   └── ...                                   # one per major tech detected
-├── audit/
-│   ├── service.md
-│   ├── schema.md
-│   └── indexes/
-│       ├── README.md
-│       └── schemas.md
-├── patterns.md                  # generated this run
-├── approaches.md                # generated this run
-├── config.json                  # generated this run (v2 three-layer assembly)
-├── prescriptive-rules.json      # generated this run
-└── build-deploy.md              # generated this run
+├── CLAUDE.md                    # templates/CLAUDE.md.template — {{WORK_ITEM_PREFIX}} substituted
+├── settings.json                # templates/hooks/settings.json.template
+├── hooks/scripts/
+│   ├── setup-probe.sh
+│   ├── session-init.sh
+│   ├── prompt-anchor.sh
+│   ├── audit-write.sh
+│   ├── commit-clean-pre-bash.sh
+│   └── prescriptive-rules-block.sh
+├── harnesses/                   # only those in assembly.cognitive_team + primary + audit
+├── lenses/                      # all four standard lenses
+├── posture.md                   # templates/universal/posture.md
+├── standards/craft.md           # templates/universal/standards/
+├── standards/safety.md
+├── standards/usability.md
+├── standards/prose.md
+├── skills/update/SKILL.md       # {{INLINE: procedures/update.md}} resolved
+├── skills/deliver-work/SKILL.md
+├── skills/audit-work/SKILL.md
+├── skills/finding/SKILL.md
+├── skills/define-specialist/SKILL.md
+├── skills/commit-clean/SKILL.md
+├── skills/jira-context/SKILL.md
+├── skills/query-audit/SKILL.md  # {{WORK_ITEM_PREFIX}} substituted
+├── audit/service.md
+├── audit/schema.md
+├── audit/indexes/README.md
+└── audit/indexes/schemas.md
 ```
 
-### Procedural skill seeding (no change from v1)
+All dynamically-generated files (config.json, patterns.md, approaches.md,
+prescriptive-rules.json, build-deploy.md, tool-safety/SKILL.md, domain
+skills) are already in place from prior steps.
 
-For each `templates/skills/<name>/SKILL.md` (the procedural skills — update,
-deliver-work, audit-work, etc.):
-1. Read the template (frontmatter + `{{INLINE: procedures/<name>.md}}`).
-2. Resolve `{{INLINE: ...}}` by reading the procedure file from AMS.
-3. Recursively resolve `@procedures/shared/<file>.md` references inside.
-4. Write fully-resolved SKILL.md to target.
+### CLAUDE.md seeding
 
-### v2 — Harness seeding
+Seed `templates/CLAUDE.md.template` → `<target>/.claude/CLAUDE.md`,
+substituting `{{WORK_ITEM_PREFIX}}`. This file enforces the `deliver-work`
+kickoff gate on every session. Overwrite if already present.
 
-For each harness in the resolved team (cognitive_team + primary_for_single_mode +
-audit_primary_harness):
-1. Read `harnesses/<name>.md` from AMS.
-2. Copy verbatim to target's `.claude/harnesses/<name>.md`.
+### Procedural skill seeding
 
-Don't seed harnesses not in the project's team — only those the dev approved.
-The dev can `define-specialist` later to add more.
+For each procedural skill template:
+1. Read the template.
+2. Resolve `{{INLINE: procedures/<name>.md}}` by reading from AMS.
+3. Recursively resolve `@procedures/shared/<file>.md` references.
+4. Substitute `{{WORK_ITEM_PREFIX}}` where present.
+5. Write to target.
 
-### v2 — Lens seeding
+### Hook script seeding
 
-Seed all four standard lenses (security, performance, accessibility,
-devils-advocate) so they're available for ad-hoc invocation. Mark which are
-always-on per `assembly.default_lenses`. Verbatim copies from AMS `lenses/`.
-
-### v2 — Domain-skill seeding (dynamic, no template)
-
-For each tech detected in Step 4b, **the generated domain-skill body** has
-already been produced. Write directly to target's
-`.claude/skills/<tech>-knowledge/SKILL.md`. No inlining step — the body is
-already self-contained.
-
-After this full step, the target has:
-- Procedural skills (verb-shaped, intent-matched)
-- Domain skills (noun-shaped, proximity-triggered)
-- Cognitive harnesses (HOW-shaped, dispatched via Agent tool)
-- Concern lenses (overlay-shaped, applied on top of harnesses)
-- Universal content (posture + standards)
-- Hook scripts + audit harness
-
-**Independence preserved:** zero references back to AMS paths. Rename-AMS
-test still passes.
-
-Make hook scripts executable: `chmod +x .claude/hooks/scripts/*.sh`.
-
----
-
-## Step 11 — Append to `.git/info/exclude`
-
-**NEVER touch the tracked `.gitignore`.** Append to `<target>/.git/info/exclude`
-(per-clone, never committed):
-
-```
-# AMS-managed (do not commit)
-.claude/
+Copy each script from `templates/hooks/scripts/` and make executable:
+```bash
+chmod +x "<target>/.claude/hooks/scripts/"*.sh
 ```
 
-If `.git/info/exclude` already has a `.claude/` entry: leave it alone.
-If `.gitignore` already has `.claude/` (project's existing convention):
-surface to dev — they may have intentionally chosen to commit `.claude/`
-configurations; in which case, fall back to `.git/info/exclude` for the
-AMS-specific subdirs only and warn that mixing tracked/untracked `.claude/`
-content is fragile.
+`audit-write.sh` is mandatory. Verify both its `UserPromptSubmit` and
+`PostToolUse(*)` registrations are present in the seeded `settings.json`.
+
+### Audit directory
+
+```bash
+mkdir -p "<target>/.claude/audit/work-items"
+mkdir -p "<target>/.claude/audit/indexes"
+```
+
+**Artifact produced:** write `$ARTIFACT_DIR/seed.done`:
+```json
+{"step": "seed", "artifacts_written": <n>, "completed_at": "<ISO>"}
+```
+
+Emit `artifact_write` for every file copied.
 
 ---
 
 ## Step 12 — Seed claude-mem with synthetic init observations
 
-For each detected pattern/approach/build-step/specialist-decision, emit a
-synthetic observation into claude-mem:
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/seed.done" "seed.done (Step 10)"
+```
+
+For each detected pattern / approach / build-step / specialist-decision,
+emit a synthetic observation:
 
 ```bash
 curl -X POST http://127.0.0.1:37777/api/observations \
   -H 'Content-Type: application/json' \
   -d '{
     "type": "init-discovery",
-    "project": "<target-name>",
-    "title": "Project uses CVA for component variants",
-    "narrative": "Detected via grep: 47 component files import cva from class-variance-authority...",
-    "concepts": ["cva", "variants", "components"],
-    "files_read": ["packages/ui/src/components/Button.tsx", "..."]
+    "project": "<target-basename>",
+    "title": "<short title>",
+    "narrative": "<evidence-based narrative>",
+    "concepts": ["<concept1>", "..."],
+    "files_read": ["<path1>", "..."]
   }'
 ```
 
-This gives `update`'s behavioural-distillation step a baseline to compare
-against. The init evidence becomes "common law" baseline that future session
-observations can confirm or contradict.
+Always use `target_basename` from `run-state.json` as the project tag — never
+the AMS-side project ID.
 
-*(Implementation note: claude-mem's observation-injection API is referenced
-abstractly here. Confirm the exact endpoint shape during implementation
-against claude-mem's worker source.)*
+On failure of any observation: emit `warn`, continue, log to
+`<target>/.claude/audit/errors.jsonl`. Warn dev that update's baseline will
+be missing for any failed observations.
+
+**Artifact produced:** write `$ARTIFACT_DIR/observations.done`:
+```json
+{"step": "observations", "observations_seeded": <n>, "failures": <n>, "completed_at": "<ISO>"}
+```
+
+Emit `claude_mem_observation_seeded` per observation.
 
 ---
 
 ## Step 13 — Audit-log the init
 
-Emit `learn_codebase_completed` event via the seeded audit service (now active
-in the target):
+**Assertions at step start:**
+```bash
+assert_artifact "$ARTIFACT_DIR/observations.done" "observations.done (Step 12)"
+```
+
+Emit `learn_codebase_completed` via the seeded audit service:
 
 ```json
 {
@@ -754,9 +952,8 @@ in the target):
   "actor": "system",
   "payload": {
     "target_path": "<absolute path>",
-    "stack_summary": {...},
-    "agents_proposed": [...],
-    "agents_generated": [...],
+    "stack_summary": { "<from environment-snapshot.json>" },
+    "domain_skills_generated": ["<from domain-skills-manifest.json>"],
     "patterns_detected": <n>,
     "approaches_detected": <n>,
     "guard_rails_extracted": <n>,
@@ -770,14 +967,12 @@ in the target):
 
 ## Step 14 — Final report
 
-Surface to dev:
-
 ```
 LEARN-CODEBASE COMPLETE
   Target:         <absolute path>
   Profile:        <target>/.claude/
   Stack:          <summary>
-  Agents:         <count>  (curated: <n>, generated: <n>)
+  Domain skills:  <count>  (<list>)
   Patterns:       <count>
   Approaches:     <count>
   GUARD RAILS:    <count> → <count> deterministic rules
@@ -792,28 +987,33 @@ Next steps:
   - For Jira-tracked work: invoke `deliver-work` and let it call `jira-context`.
 ```
 
+Emit `invocation_end` with full summary. Clean up:
+```bash
+rm -f "$AMS_HOME/logs/.current-run-log" "$AMS_HOME/logs/.current-run-id"
+rm -rf "$ARTIFACT_DIR"
+```
+
 ---
 
 ## Failure handling
 
 | Failure | Action |
 |---|---|
-| claude-mem worker unreachable | Stop at Step 0; remediation surfaced |
+| claude-mem worker unreachable | Stop at Step 0; emit remediation hint |
 | Target path doesn't exist | Stop at Step 0 |
-| Existing config detected | Route to update-or-rebuild prompt |
-| Stack detection ambiguous | Surface to dev; allow correction |
-| Generated specialist rejected by dev | Drop from team; continue without it |
-| GUARD RAILS parse failure | Skip rule; log parse error to `audit/errors.jsonl`; surface unparsed entries to dev |
-| Synthetic observation seed fails | Continue; log to `audit/errors.jsonl`; warn dev that update's baseline will be missing |
-| `.git/info/exclude` write fails (permissions) | Surface; ask dev to add manually |
+| Assertion gate fails | Stop at the failing step; message names the missing artifact and which step produces it |
+| Existing config detected | Route to update-or-rebuild prompt (Step 0) |
+| Stack detection ambiguous | Surface to dev; allow correction at Step 2 gate |
+| GUARD RAILS parse failure | Skip rule; emit `warn`; surface unparsed entries to dev |
+| Synthetic observation seed fails | Continue; log to `audit/errors.jsonl`; warn dev |
+| `.git/info/exclude` write fails | Surface; ask dev to add manually; halt |
 
 ---
 
 ## Idempotence
 
-`learn-codebase` on a target with existing config offers update-vs-rebuild.
-On rebuild, all generated artifacts are overwritten. Hand-edited
-`patterns.md`/`approaches.md` content should be preserved when possible (use
-`<claude-mem-context>`-style wrappers for AMS-generated content blocks vs
-human-authored). v1 will warn before overwriting any file containing
-human-authored sections.
+On a target with existing `config.json`, Step 0 offers update-vs-rebuild.
+On full rebuild, all artifacts are overwritten. Hand-edited sections in
+`patterns.md`/`approaches.md` are preserved when the content hash in
+`config.json.environment_snapshot.content_hashes` matches — if hashes differ,
+warn before overwriting.
