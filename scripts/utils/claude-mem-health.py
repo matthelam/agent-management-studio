@@ -26,7 +26,12 @@ from pathlib import Path
 # Two levels up from scripts/utils/  →  AMS_HOME
 AMS_HOME = Path(__file__).resolve().parents[2]
 NODE_MODULES_BIN = AMS_HOME / "node_modules" / ".bin"
-CLAUDE_MEM_BIN = NODE_MODULES_BIN / "claude-mem"
+# On Windows npm creates .cmd wrappers; the bare name is a Unix shell script
+# that subprocess.run cannot execute (WinError 193).
+import sys as _sys
+CLAUDE_MEM_BIN = NODE_MODULES_BIN / (
+    "claude-mem.cmd" if _sys.platform == "win32" else "claude-mem"
+)
 
 
 def _run(cmd: list[str], cwd: Path | None = None) -> tuple[int, str, str]:

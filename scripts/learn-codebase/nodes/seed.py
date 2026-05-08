@@ -20,7 +20,7 @@ def _health_check(ams_home: str) -> bool:
     if not health_script.exists():
         return False
     result = subprocess.run(
-        [sys.executable, str(health_script)],
+        [sys.executable, str(health_script), "--ensure"],
         capture_output=True, text=True
     )
     return result.returncode == 0
