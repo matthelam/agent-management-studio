@@ -1,8 +1,8 @@
 # LangGraph orchestration — standalone, does NOT require langchain core
-langgraph>=0.2.0,<0.3.0
+langgraph>=0.2.57,<0.3.0
 
 # File-based checkpoint serialisation for cross-process state persistence
-langgraph-checkpoint-sqlite>=1.0.0,<2.0.0
+langgraph-checkpoint-sqlite>=1.0.0
 
 # Anthropic SDK — structured output, prompt caching
 anthropic>=0.40.0

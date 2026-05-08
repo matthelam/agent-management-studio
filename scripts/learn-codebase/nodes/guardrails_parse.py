@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Optional
 
 from config import GUARDRAIL_ACTIONS
-from state import GraphState, GuardRail, add_warning
+from state import GraphState, GuardRail, has_fatal_error, add_warning
 from logger import step_start, step_end, prescriptive_rule_generated
 
 
@@ -79,18 +78,37 @@ def parse_guard_rails(approaches_md: str) -> tuple[list[GuardRail], list[str]]:
             tools=tools,
             match={"path_glob": path_glob},
             action=action,
-            reason=f"Extracted from approaches.md GUARD RAILS section",
+            reason="Extracted from approaches.md GUARD RAILS section",
         ))
 
     return rails, warnings
 
 
 def run(state: GraphState) -> GraphState:
-    """
-    Requires: state["approaches_md"] is not None
+    if has_fatal_error(state):
+        return state
 
-    1. Call parse_guard_rails(state["approaches_md"])
-    2. Set state["guard_rails"] and state["guard_rails_parse_warnings"]
-    3. Log a prescriptive_rule_generated event per rail
-    """
-    raise NotImplementedError("guardrails_parse.run() not yet implemented — parser logic above is ready")
+    meta = state["meta"]
+    log = meta["log_file"]
+
+    if not state.get("approaches_md"):
+        return state  # nothing to parse (stub mode produces empty string)
+
+    step_start(log, "5-guardrails_parse", "guardrails_parse")
+
+    rails, warnings = parse_guard_rails(state["approaches_md"])
+
+    state["guard_rails"] = rails
+    state["guard_rails_parse_warnings"] = warnings
+
+    for r in rails:
+        prescriptive_rule_generated(
+            log, r["id"], r["match"]["path_glob"], r["action"], r["tools"]
+        )
+
+    for w in warnings:
+        add_warning(state, w)
+
+    step_end(log, "5-guardrails_parse", "guardrails_parse", "ok",
+             f"{len(rails)} rails, {len(warnings)} warnings")
+    return state
