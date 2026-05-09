@@ -176,21 +176,38 @@ def extract(sweep_files: list[str], target: Path) -> DeterministicFacts:
     facts = DeterministicFacts()
     rels = _rel_names(sweep_files, target)
 
-    # Structural file presence
+    # Structural file presence — check root AND common rendering-layer paths
+    # (Sitecore monorepos keep turbo.json / workspace files under src/rendering/)
+    _RENDERING_PREFIXES = ("", "src/rendering/", "rendering/")
+
     facts.has_sitecore_json = any(
         r == "sitecore.json" or r.endswith("/sitecore.json") for r in rels
     )
-    facts.has_turbo_json = "turbo.json" in rels
-    facts.has_pnpm_workspace = "pnpm-workspace.yaml" in rels
-    facts.has_nx_json = "nx.json" in rels
+    facts.has_turbo_json = any(
+        f"{pfx}turbo.json" in rels for pfx in _RENDERING_PREFIXES
+    )
+    facts.has_pnpm_workspace = any(
+        f"{pfx}pnpm-workspace.yaml" in rels for pfx in _RENDERING_PREFIXES
+    )
+    facts.has_nx_json = any(
+        f"{pfx}nx.json" in rels for pfx in _RENDERING_PREFIXES
+    )
 
-    # Package manager from lockfile (priority: pnpm > yarn > npm)
-    if "pnpm-lock.yaml" in rels:
-        facts.package_manager, facts.pm_lockfile = "pnpm", "pnpm-lock.yaml"
-    elif "yarn.lock" in rels:
-        facts.package_manager, facts.pm_lockfile = "yarn", "yarn.lock"
-    elif "package-lock.json" in rels:
-        facts.package_manager, facts.pm_lockfile = "npm", "package-lock.json"
+    # Package manager from lockfile (priority: pnpm > yarn > npm).
+    # Check root first, then rendering-layer subdirectories.
+    _LOCKFILE_CANDIDATES = [
+        ("pnpm-lock.yaml", "pnpm"),
+        ("yarn.lock",       "yarn"),
+        ("package-lock.json", "npm"),
+    ]
+    for lockfile, pm in _LOCKFILE_CANDIDATES:
+        found = next(
+            (r for pfx in _RENDERING_PREFIXES if (r := f"{pfx}{lockfile}") in rels),
+            None,
+        )
+        if found:
+            facts.package_manager, facts.pm_lockfile = pm, found
+            break
 
     # Root package.json first
     _parse_pkg(target / "package.json", facts)

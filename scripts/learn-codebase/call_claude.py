@@ -27,7 +27,8 @@ from config import SONNET, OPUS
 T = TypeVar("T", bound=BaseModel)
 
 _TIMEOUT_STRUCTURED = 180   # seconds — structured calls with schema in prompt
-_TIMEOUT_FREETEXT   = 300   # seconds — synthesis nodes generate longer output
+_TIMEOUT_FREETEXT   = 540   # seconds — synthesis nodes generate longer output
+_TIMEOUT_AGENT      = 600   # seconds — per-agent scan of a large codebase
 _MAX_RETRIES        = 2
 
 
@@ -51,7 +52,6 @@ def _run_claude(
     cmd = [
         "claude",
         "--output-format", "json",
-        "--tools", "",
         "--no-session-persistence",
         "--model", model,
     ]
@@ -268,6 +268,11 @@ def run_agents(
     for harness_name, task_instruction in agents:
         system = load_harness(harness_name)
         user   = f"{task_instruction}\n\n---\n\n{shared_context}"
-        output = freetext(system_prompt=system, user_message=user, model=model)
+        output = _run_claude(
+            user,
+            system_prompt=system,
+            model=model,
+            timeout=_TIMEOUT_AGENT,
+        )
         results.append({"harness": harness_name, "output": output})
     return results
