@@ -4,6 +4,12 @@ domain_skills — Step 7: generate domain skill SKILL.md files.
 canonicalize_skills() is deterministic Python. The per-skill LLM call
 (DomainSkillBody) is skipped in stub mode; a placeholder SKILL.md is
 written instead.
+
+After each real skill generation the verifier checks:
+  DS-001 (blocking): skill name ends in -knowledge
+  DS-002 (warning):  project_specific_patterns references real content
+  DS-003 (warning):  doc_fallback_url is non-empty and non-placeholder
+A warning is surfaced on failure; generation continues to the next skill.
 """
 
 from __future__ import annotations
@@ -13,9 +19,10 @@ from pathlib import Path
 
 from state import GraphState, DomainSkillEntry, has_fatal_error, add_warning, DomainSkillBody
 from call_claude import structured
+from verifier import verify, Assertion
 from config import SONNET, UMBRELLA_TABLE, MAX_DOMAIN_SKILLS
 from stub_helpers import is_stub
-from logger import step_start, step_end, artifact_write as log_artifact_write
+from logger import step_start, step_end, artifact_write as log_artifact_write, verification_result as log_vr
 
 
 def canonicalize_skills(sweep_files: list[str], stack: dict) -> list[str]:
@@ -79,6 +86,41 @@ def _real_skill_md(body: DomainSkillBody) -> str:
     return "\n".join(lines)
 
 
+def _build_assertions(name: str, body: DomainSkillBody, patterns_md: str) -> list[Assertion]:
+    placeholder_urls = {"", "https://example.com", "https://docs.example.com", "TBD", "N/A"}
+    patterns_signal = len(body.project_specific_patterns.strip()) > 50
+
+    return [
+        Assertion(
+            id="DS-001",
+            description="Skill name ends in '-knowledge' per naming convention",
+            evidence=f"All canonical skill names must end in '-knowledge'",
+            claim=f"Generated skill name: '{body.name}'",
+            severity="blocking",
+        ),
+        Assertion(
+            id="DS-002",
+            description="project_specific_patterns contains real project content (>50 chars)",
+            evidence=(
+                f"patterns.md length: {len(patterns_md)} chars. "
+                f"Content available for extraction."
+            ),
+            claim=(
+                f"project_specific_patterns length: {len(body.project_specific_patterns)} chars. "
+                f"Non-trivial: {patterns_signal}"
+            ),
+            severity="warning",
+        ),
+        Assertion(
+            id="DS-003",
+            description="doc_fallback_url is a real URL, not empty or a placeholder",
+            evidence="URL must be a non-empty string starting with https:// pointing to official docs",
+            claim=f"doc_fallback_url: '{body.doc_fallback_url}'",
+            severity="warning",
+        ),
+    ]
+
+
 def run(state: GraphState) -> GraphState:
     if has_fatal_error(state):
         return state
@@ -106,6 +148,12 @@ def run(state: GraphState) -> GraphState:
     approaches_md = state.get("approaches_md") or ""
     build_deploy = json.dumps(state.get("build_deploy") or {}, indent=2)
 
+    system = (
+        "You are writing a domain knowledge skill file for Claude Code. "
+        "Extract only content relevant to this specific technology from the "
+        "provided project context. Be precise and project-specific."
+    )
+
     for name in skill_names:
         skills_dir = target / ".claude" / "skills" / name
         skills_dir.mkdir(parents=True, exist_ok=True)
@@ -114,11 +162,6 @@ def run(state: GraphState) -> GraphState:
         if stub_mode:
             content = _stub_skill_md(name)
         else:
-            system = (
-                "You are writing a domain knowledge skill file for Claude Code. "
-                "Extract only content relevant to this specific technology from the "
-                "provided project context. Be precise and project-specific."
-            )
             user = (
                 f"Technology: {name}\n\n"
                 f"patterns.md excerpt:\n{patterns_md[:4000]}\n\n"
@@ -132,6 +175,41 @@ def run(state: GraphState) -> GraphState:
                     schema=DomainSkillBody,
                     model=SONNET,
                 )
+
+                # --- Verify ---
+                step_key = f"domain_skills/{name}"
+                assertions = _build_assertions(name, body, patterns_md)
+                vr = verify(step_key, assertions)
+                state["verification_results"][step_key] = vr.as_dict()
+                log_vr(log, step_key, vr.verdict,
+                       vr.failed_blocking, vr.failed_warnings, vr.correction_brief)
+
+                # --- Retry on blocking failure ---
+                if vr.has_blocking_failures():
+                    retry_user = (
+                        f"{user}\n\n"
+                        f"[VERIFICATION FAILED] Correction required:\n{vr.correction_brief}"
+                    )
+                    try:
+                        body = structured(
+                            system_prompt=system,
+                            user_message=retry_user,
+                            schema=DomainSkillBody,
+                            model=SONNET,
+                        )
+                        vr2 = verify(f"{step_key}_retry", _build_assertions(name, body, patterns_md))
+                        state["verification_results"][f"{step_key}_retry"] = vr2.as_dict()
+                        log_vr(log, f"{step_key}_retry", vr2.verdict,
+                               vr2.failed_blocking, vr2.failed_warnings, vr2.correction_brief)
+                        if vr2.has_blocking_failures():
+                            add_warning(
+                                state,
+                                f"domain_skills/{name}: blocking assertions still failing after retry "
+                                f"— {vr2.correction_brief}",
+                            )
+                    except Exception as exc:
+                        add_warning(state, f"domain_skills/{name}: retry failed: {exc}")
+
                 content = _real_skill_md(body)
             except Exception as exc:
                 add_warning(state, f"domain_skills: failed to generate {name}: {exc}")

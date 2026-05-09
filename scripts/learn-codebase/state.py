@@ -95,6 +95,12 @@ class GraphState(TypedDict):
     # --- content hashes (computed in assemble_manifest) ---
     content_hashes: dict[str, str]   # {"patterns_md": "<sha256>", "approaches_md": "<sha256>"}
 
+    # --- deterministic facts (set by stack_detect, read by build_deploy + domain_skills) ---
+    det_facts: Optional[dict]        # DeterministicFacts.as_dict()
+
+    # --- per-step verification results ---
+    verification_results: dict[str, dict]   # step_name → VerificationResult.as_dict()
+
     # --- error + warning accumulator ---
     errors:   list[dict]    # {"step": str, "message": str, "fatal": bool}
     warnings: list[str]
@@ -126,6 +132,8 @@ def initial_state(meta: RunMeta) -> GraphState:
         observations_seeded=0,
         observation_failures=0,
         content_hashes={},
+        det_facts=None,
+        verification_results={},
         errors=[],
         warnings=[],
     )

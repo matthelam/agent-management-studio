@@ -28,6 +28,7 @@ EVENT_TYPES = frozenset({
     "approach_detected",
     "prescriptive_rule_generated",
     "human_gate",
+    "verification_result",
     "warn",
     "error",
     "checkpoint_write",
@@ -135,3 +136,21 @@ def checkpoint_write(log_file: str, gate: str, checkpoint_path: str) -> None:
 
 def checkpoint_resume(log_file: str, gate: str, response: str) -> None:
     emit(log_file, "checkpoint_resume", gate=gate, response=response)
+
+
+def verification_result(
+    log_file: str,
+    step: str,
+    verdict: str,
+    failed_blocking: int,
+    failed_warnings: int,
+    correction_brief: str,
+) -> None:
+    emit(
+        log_file, "verification_result",
+        step=step,
+        verdict=verdict,
+        failed_blocking=failed_blocking,
+        failed_warnings=failed_warnings,
+        correction_brief=correction_brief,
+    )

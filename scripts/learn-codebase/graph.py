@@ -4,7 +4,7 @@ graph.py — LangGraph DAG for the learn-codebase pipeline.
 Node execution order:
   preflight → gitignore_check → file_sweep
   → stack_detect → build_deploy → stack_gate (interrupt)
-  → pattern_detect → approach_detect → guardrails_parse
+  → pattern_detect → approach_detect → guardrails_extract
   → team_propose → team_gate (interrupt)
   → domain_skills → assemble_manifest → tool_safety
   → seed → audit_log → final_report
@@ -29,7 +29,7 @@ from nodes import (
     stack_gate,
     pattern_detect,
     approach_detect,
-    guardrails_parse,
+    guardrails_extract,
     team_propose,
     team_gate,
     domain_skills,
@@ -52,7 +52,7 @@ _PIPELINE: list[tuple[str, object]] = [
     ("stack_gate",             stack_gate),
     ("pattern_detect",         pattern_detect),
     ("approach_detect",        approach_detect),
-    ("guardrails_parse",       guardrails_parse),
+    ("guardrails_extract",     guardrails_extract),
     ("team_propose",           team_propose),
     ("team_gate",              team_gate),
     ("generate_domain_skills", domain_skills),   # avoids clash with state["domain_skills"]
