@@ -314,29 +314,21 @@ If the assessment produces zero Critical items, the agent confirms readiness imm
 
 ### Log
 
-Via audit logging service (`agency/audit/service.md`):
+Emit the phase transition immediately when Phase 1 begins — do not defer:
 
-```json
-{
-  "type": "phase_transition",
-  "actor": "system",
-  "payload": { "from": null, "to": "brief" }
-}
+```bash
+WORK_ID="$(jq -r '.audit.current_work_item' .claude/config.json 2>/dev/null)"
+AUDIT_FILE=".claude/audit/work-items/${WORK_ID}.jsonl"
+printf '{"timestamp":"%s","type":"phase_transition","actor":"system","payload":{"from":null,"to":"brief"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
 Also log the human gate decision after approval:
 
-```json
-{
-  "type": "human_gate",
-  "actor": "human",
-  "payload": {
-    "gate": "after_brief",
-    "presented": ["work item summary", "clarity report", "resolved acceptance criteria"],
-    "decision": "approved | rejected | modified",
-    "modifications": null
-  }
-}
+```bash
+printf '{"timestamp":"%s","type":"human_gate","actor":"human","payload":{"gate":"after_brief","presented":["work item summary","clarity report","resolved acceptance criteria"],"decision":"approved|rejected|modified","modifications":null}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
+```
 ```
 
 ### HUMAN GATE — After Brief
@@ -394,10 +386,18 @@ Lead and support agents produce an execution plan:
 
 - **Files to modify** — list every file that will be touched
 - **Approach** — how the change will be implemented
-- **Test strategy** — what tests will be added or run
+- **Test strategy** — what tests will be added or run (see TDD REQUIREMENT below)
 - **Risk assessment** — what could go wrong
 
 Agents reference the persisted Clarity Report: plan against confirmed acceptance criteria, use confirmed scope, apply confirmed approach decisions. If the plan would deviate from a Clarity Report resolution, escalate to the human.
+
+**TDD REQUIREMENT (non-negotiable):** The test strategy must be written before implementation begins. For every AC:
+- State what unit/integration test will cover it and the expected assertion
+- If the AC involves a UI component, state which Storybook story will cover it and how it will be visually verified
+- If the project has a Storybook domain skill, **explicitly invoke it before writing any `.stories.tsx` file** — the Storybook skill is a mandatory pre-condition for story authoring, not optional
+- Tests must be written (and failing) before the implementation code that makes them pass — TDD red-green-refactor
+
+This is a harness crux: an untested AC is an unverifiable AC. A plan without auditable test coverage is incomplete and must not be approved.
 
 ### Mode-specific planning
 
@@ -407,29 +407,20 @@ Agents reference the persisted Clarity Report: plan against confirmed acceptance
 
 ### Log
 
-Via audit logging service (`agency/audit/service.md`):
+Emit the phase transition immediately when Phase 3 begins — do not defer:
 
-```json
-{
-  "type": "phase_transition",
-  "actor": "system",
-  "payload": { "from": "self_assess", "to": "plan" }
-}
+```bash
+WORK_ID="$(jq -r '.audit.current_work_item' .claude/config.json 2>/dev/null)"
+AUDIT_FILE=".claude/audit/work-items/${WORK_ID}.jsonl"
+printf '{"timestamp":"%s","type":"phase_transition","actor":"system","payload":{"from":"self_assess","to":"plan"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
 Also log the human gate decision:
 
-```json
-{
-  "type": "human_gate",
-  "actor": "human",
-  "payload": {
-    "gate": "after_plan",
-    "presented": ["execution plan", "file list", "test strategy", "risk assessment"],
-    "decision": "approved | rejected | modified",
-    "modifications": null
-  }
-}
+```bash
+printf '{"timestamp":"%s","type":"human_gate","actor":"human","payload":{"gate":"after_plan","presented":["execution plan","file list","test strategy","risk assessment"],"decision":"approved|rejected|modified","modifications":null}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
 ### HUMAN GATE — After Plan
@@ -437,7 +428,7 @@ Also log the human gate decision:
 Present to human:
 - Execution plan
 - File list
-- Test strategy
+- Test strategy (including per-AC test assertions and Storybook story plan for UI ACs)
 - Risk assessment
 - For Fix mode: root cause analysis with tactical vs root cause recommendation
 
@@ -463,6 +454,14 @@ Agents implement the approved plan.
    - Confidence below threshold → peer consult and log
    - Ambiguity or irreversible → human gate
 5. Peer consultation occurs during this phase — agents consult structured pairs before cross-boundary changes.
+6. **RESOLVER LOGGING RULE (non-negotiable):** Every resolver decision must be logged inline immediately when it occurs — do not batch. Zero `resolver_decision` events in a non-trivial work item is a protocol violation detectable in audit. Use this emit after each decision:
+
+```bash
+WORK_ID="$(jq -r '.audit.current_work_item' .claude/config.json 2>/dev/null)"
+AUDIT_FILE=".claude/audit/work-items/${WORK_ID}.jsonl"
+printf '{"timestamp":"%s","type":"resolver_decision","actor":"agent:<name>","payload":{"decision":"<what was decided>","confidence":"high|medium|low","method":"self|peer|human","rationale":"<why>"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
+```
 
 ### Fix mode — execution specifics
 
@@ -485,17 +484,16 @@ Agents implement the approved plan.
 
 ### Log
 
-Via audit logging service (`agency/audit/service.md`):
+Emit the phase transition immediately when Phase 4 begins — do not defer:
 
-```json
-{
-  "type": "phase_transition",
-  "actor": "system",
-  "payload": { "from": "plan", "to": "execute" }
-}
+```bash
+WORK_ID="$(jq -r '.audit.current_work_item' .claude/config.json 2>/dev/null)"
+AUDIT_FILE=".claude/audit/work-items/${WORK_ID}.jsonl"
+printf '{"timestamp":"%s","type":"phase_transition","actor":"system","payload":{"from":"plan","to":"execute"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
-Log resolver decisions as they occur (see `behaviours/resolver.md` and `agency/audit/schema.md` for `resolver_decision` schema).
+Log resolver decisions inline as they occur — do not batch (see Phase 4 resolver logging rules above).
 
 ### Emit `skill_triggered` each time a domain skill actively shapes a decision
 
@@ -535,6 +533,8 @@ For each acceptance criterion:
 
 The verifier cross-references the Clarity Report: verify against resolved done state, confirm approach adherence, catch drift from Clarity Report resolutions.
 
+**RENDERING EVIDENCE RULE (non-negotiable):** If any AC contains the words "render", "display", "visible", "Storybook", or "browser", the evidence field MUST include a Playwright screenshot. Code evidence (file existence, import presence, TypeScript checks) is insufficient for these ACs and will be treated as a protocol violation in audit. No rendering AC may be marked PASS without visual evidence.
+
 ### Mode-specific final checks
 
 **Fix:** Symptom resolved? Root cause addressed? Zero regressions?
@@ -543,31 +543,20 @@ The verifier cross-references the Clarity Report: verify against resolved done s
 
 ### Log
 
-Via audit logging service (`agency/audit/service.md`):
+Emit the phase transition immediately when Phase 5 begins — do not defer:
 
-```json
-{
-  "type": "phase_transition",
-  "actor": "system",
-  "payload": { "from": "execute", "to": "final_verify" }
-}
+```bash
+WORK_ID="$(jq -r '.audit.current_work_item' .claude/config.json 2>/dev/null)"
+AUDIT_FILE=".claude/audit/work-items/${WORK_ID}.jsonl"
+printf '{"timestamp":"%s","type":"phase_transition","actor":"system","payload":{"from":"execute","to":"final_verify"}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
-One `verification_result` entry per acceptance criterion:
+One `verification_result` entry per acceptance criterion (emit immediately per AC, not batched):
 
-```json
-{
-  "type": "verification_result",
-  "actor": "agent:<name>",
-  "payload": {
-    "ac_index": 1,
-    "ac_text": "Login validates email format",
-    "clarity_item_id": "clarity-001",
-    "status": "pass | fail",
-    "evidence": "Unit test login-form.test.ts:L45 passes",
-    "drift_detected": false
-  }
-}
+```bash
+printf '{"timestamp":"%s","type":"verification_result","actor":"agent:<name>","payload":{"ac_index":<N>,"ac_text":"<text>","status":"pass|fail","evidence":"<evidence>","drift_detected":false}}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)" >> "$AUDIT_FILE"
 ```
 
 Also log the human gate decision:
