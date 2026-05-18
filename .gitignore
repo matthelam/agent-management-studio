@@ -10,6 +10,10 @@
 # See procedures/ams-audit-logging.md for schema
 logs/*.jsonl
 
+# Build artifacts — do not commit (large native binaries)
+audit-cli/dist/
+audit-cli/node_modules/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
