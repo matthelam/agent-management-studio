@@ -1,0 +1,600 @@
+{
+  "_comment": "AMS curated tool registry. Covers MCPs (live system access), skill packs (domain knowledge), and agent configs (cognitive shape). Populated by curate-tools. Initial scaffold entries migrated from mcp-catalogue.json v1.",
+  "_version": "2.0.0",
+  "_updated": "2026-05-07",
+  "_types": {
+    "mcp": "Model Context Protocol server — connects AI to live system state",
+    "skill-pack": "Collection of domain knowledge SKILL.md files — constrains AI to correct patterns",
+    "agent-config": "Cognitive team composition, guard rails, personas — controls how AI reasons"
+  },
+  "tools": {
+    "next-devtools-mcp": {
+      "id": "next-devtools-mcp",
+      "type": "mcp",
+      "name": "Next.js DevTools MCP",
+      "vendor": "Vercel",
+      "version": "0.3.10",
+      "homepage": "https://github.com/vercel/next-devtools-mcp",
+      "install": {
+        "method": "npx",
+        "command": "npx next-devtools-mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["next.js"],
+      "tools": [
+        { "name": "init", "crud": "pure-read", "side_effects": [] },
+        { "name": "nextjs_docs", "crud": "pure-read", "side_effects": [] },
+        { "name": "nextjs_index", "crud": "pure-read", "side_effects": [] },
+        { "name": "nextjs_call", "crud": "read-with-side-effects", "side_effects": ["Calls live dev server; may trigger dev-server side effects depending on target"] },
+        { "name": "get_errors", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_logs", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_page_metadata", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_project_metadata", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_routes", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_server_action_by_id", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_eval", "crud": "read-with-side-effects", "side_effects": ["Launches Playwright browser process; may modify browser state"] },
+        { "name": "upgrade_nextjs_16", "crud": "write", "side_effects": ["Runs codemods that modify source files"] },
+        { "name": "enable_cache_components", "crud": "write", "side_effects": ["Modifies Next.js config and source files"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 5,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Requires Next.js 16+ dev server running at /_next/mcp — not applicable to Next.js 15 projects without upgrade"
+        ],
+        "notes": "Official Vercel tool. Live introspection of errors, routes, server actions replaces AI guessing from static code. Requires Next.js 16+ dev server. upgrade_nextjs_16 and enable_cache_components are write tools — should not be invoked in audit/review modes."
+      }
+    },
+    "vercel-mcp": {
+      "id": "vercel-mcp",
+      "type": "mcp",
+      "name": "Vercel MCP",
+      "vendor": "Vercel",
+      "version": "current",
+      "homepage": "https://vercel.com/docs/mcp/vercel-mcp",
+      "install": {
+        "method": "plugin-marketplace",
+        "command": "/plugin install vercel"
+      },
+      "auth_model": "oauth",
+      "technologies": ["vercel"],
+      "tools": [
+        { "name": "list_projects", "crud": "pure-read", "side_effects": [] },
+        { "name": "list_deployments", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_deployment", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_deployment_build_logs", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_runtime_logs", "crud": "pure-read", "side_effects": [] },
+        { "name": "deploy_to_vercel", "crud": "write", "side_effects": ["Creates deployment; consumes build minutes; triggers webhooks"] },
+        { "name": "check_domain_availability_and_price", "crud": "pure-read", "side_effects": [] },
+        { "name": "list_teams", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_project", "crud": "pure-read", "side_effects": [] },
+        { "name": "list_toolbar_threads", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_toolbar_thread", "crud": "pure-read", "side_effects": [] },
+        { "name": "reply_to_toolbar_thread", "crud": "write", "side_effects": ["Posts comment visible to collaborators"] },
+        { "name": "add_toolbar_reaction", "crud": "write", "side_effects": ["Adds reaction visible to collaborators"] },
+        { "name": "edit_toolbar_message", "crud": "write", "side_effects": ["Modifies existing comment"] },
+        { "name": "change_toolbar_thread_resolve_status", "crud": "write", "side_effects": ["Changes thread state"] },
+        { "name": "search_vercel_documentation", "crud": "pure-read", "side_effects": [] },
+        { "name": "web_fetch_vercel_url", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_access_to_vercel_url", "crud": "read-with-side-effects", "side_effects": ["May record access in Vercel access logs"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "hosted-saas",
+          "auth_model": "pass"
+        },
+        "gaps": [],
+        "notes": "Official Vercel MCP. deploy_to_vercel is write — must not fire in audit/read-only modes. Toolbar thread tools are visible to collaborators — treat as write."
+      }
+    },
+    "azure-mcp": {
+      "id": "azure-mcp",
+      "type": "mcp",
+      "name": "Azure MCP",
+      "vendor": "Microsoft",
+      "version": "current",
+      "homepage": "https://learn.microsoft.com/azure",
+      "install": {
+        "method": "plugin-marketplace",
+        "command": "/plugin install azure"
+      },
+      "auth_model": "oauth",
+      "technologies": ["azure"],
+      "tools": [],
+      "harness": {
+        "scored_at": null,
+        "verdict": "scaffold",
+        "scores": {},
+        "gaps": [],
+        "notes": "v1 scaffold migrated from mcp-catalogue. Large surface area — staged CRUD-truthfulness review required. Full curation pending."
+      }
+    },
+    "atlassian-mcp": {
+      "id": "atlassian-mcp",
+      "type": "mcp",
+      "name": "Atlassian MCP (Jira + Confluence)",
+      "vendor": "Atlassian",
+      "version": "current",
+      "homepage": "https://www.atlassian.com",
+      "install": {
+        "method": "plugin-marketplace",
+        "command": "/plugin install atlassian"
+      },
+      "auth_model": "oauth",
+      "technologies": ["atlassian-jira", "atlassian-confluence"],
+      "tools": [
+        { "name": "getJiraIssue", "crud": "pure-read", "side_effects": [] },
+        { "name": "searchJiraIssuesUsingJql", "crud": "pure-read", "side_effects": [] },
+        { "name": "getVisibleJiraProjects", "crud": "pure-read", "side_effects": [] },
+        { "name": "addCommentToJiraIssue", "crud": "write", "side_effects": ["Visible to all watchers; sends notifications"] },
+        { "name": "createJiraIssue", "crud": "write", "side_effects": ["Creates issue; sends notifications"] },
+        { "name": "transitionJiraIssue", "crud": "write", "side_effects": ["Changes status; may trigger workflow automations"] },
+        { "name": "editJiraIssue", "crud": "write", "side_effects": ["Modifies issue; sends notifications"] }
+      ],
+      "harness": {
+        "scored_at": null,
+        "verdict": "scaffold",
+        "scores": {},
+        "gaps": [],
+        "notes": "v1 scaffold. Critical for jira-context skill and deliver-work flow. Full curation pending."
+      }
+    },
+    "playwright-mcp": {
+      "id": "playwright-mcp",
+      "type": "mcp",
+      "name": "Playwright MCP",
+      "vendor": "Microsoft",
+      "version": "current",
+      "homepage": "https://playwright.dev",
+      "install": {
+        "method": "plugin-marketplace",
+        "command": "/plugin install playwright"
+      },
+      "auth_model": "none",
+      "technologies": ["playwright"],
+      "tools": [],
+      "harness": {
+        "scored_at": null,
+        "verdict": "scaffold",
+        "scores": {},
+        "gaps": [],
+        "notes": "v1 scaffold. Full curation pending."
+      }
+    },
+    "sitecore-knowledge-mcp": {
+      "id": "sitecore-knowledge-mcp",
+      "type": "mcp",
+      "name": "Sitecore Knowledge MCP",
+      "vendor": "Sitecore (community — vendor authenticity unconfirmed)",
+      "version": "current",
+      "homepage": null,
+      "install": {
+        "method": "plugin-marketplace",
+        "command": "verify exact id during curation"
+      },
+      "auth_model": "api_key",
+      "technologies": ["sitecore-xmc", "sitecore-content-sdk", "sitecore-jss"],
+      "tools": [],
+      "harness": {
+        "scored_at": null,
+        "verdict": "scaffold",
+        "scores": {},
+        "gaps": [],
+        "notes": "v1 scaffold. Vendor-authenticity check needed — community vs official Sitecore. Full curation pending."
+      }
+    },
+    "shadcn-mcp": {
+      "id": "shadcn-mcp",
+      "type": "mcp",
+      "name": "shadcn MCP",
+      "vendor": "shadcn (community — maintained by shadcn team)",
+      "version": "latest",
+      "homepage": "https://ui.shadcn.com/docs/mcp",
+      "install": {
+        "method": "cli-init",
+        "command": "pnpm dlx shadcn@latest mcp init --client claude"
+      },
+      "auth_model": "none",
+      "technologies": ["shadcn-ui", "radix-ui", "tailwindcss"],
+      "tools": [
+        { "name": "browse_components", "crud": "pure-read", "side_effects": [] },
+        { "name": "search_registries", "crud": "pure-read", "side_effects": [] },
+        { "name": "install_components", "crud": "write", "side_effects": ["Writes component files to project; modifies package.json deps"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 3,
+          "domain_depth": 3,
+          "accuracy_risk": "pass",
+          "friction_cost": 5,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Installs components but does not teach correct usage patterns (CVA, cn(), Radix data-slot, props.ts). Must be paired with tailwind-radix domain skill or equivalent patterns.md coverage to close harness gap."
+        ],
+        "notes": "install_components is write — adds files and deps. Harness strength is medium: reduces component discovery friction but does not constrain AI to correct composition patterns. Conditional approval: effective only when paired with a skill covering CVA/Radix patterns. Private registries require REGISTRY_TOKEN env var."
+      }
+    },
+    "storyblok-mcp": {
+      "id": "storyblok-mcp",
+      "type": "mcp",
+      "name": "Storyblok MCP",
+      "vendor": "Storyblok",
+      "version": "hosted",
+      "homepage": "https://www.storyblok.com/mp/mcp-server",
+      "install": {
+        "method": "hosted-http",
+        "command": "claude mcp add --transport http Storyblok https://mcp.labs.storyblok.com/mcp --header \"Authorization: Bearer <token>\""
+      },
+      "auth_model": "api_key",
+      "technologies": ["storyblok"],
+      "tools": [
+        { "name": "search", "crud": "pure-read", "side_effects": [] },
+        { "name": "describe", "crud": "pure-read", "side_effects": [] },
+        { "name": "execute_readonly", "crud": "pure-read", "side_effects": [] },
+        { "name": "execute_mutating", "crud": "write", "side_effects": ["Modifies CMS content; triggers webhooks if configured"] },
+        { "name": "execute_destructive", "crud": "destructive", "side_effects": ["Permanently deletes CMS content; irreversible"] },
+        { "name": "upload_asset", "crud": "write", "side_effects": ["Creates asset record; obtains S3 signed URL"] },
+        { "name": "upload_asset_finish", "crud": "write", "side_effects": ["Finalises asset in Storyblok; makes it addressable"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 5,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "hosted-saas",
+          "auth_model": "pass"
+        },
+        "gaps": [],
+        "notes": "Official Storyblok tool. Discovery-first pattern (search → describe → execute) is itself a harness — forces AI to introspect before acting. Explicit CRUD separation into execute_readonly / execute_mutating / execute_destructive is excellent safety design. RBAC via ?role= query param allows scoping to content_reviewer (read-only), content_editor, or developer. GitHub repo archived Mar 2026 — now fully hosted; no maintenance burden. ToS review recommended before use in commercial projects."
+      }
+    },
+    "microsoft-skills": {
+      "id": "microsoft-skills",
+      "type": "skill-pack",
+      "name": "Microsoft Azure SDK Skills",
+      "vendor": "Microsoft",
+      "version": "current",
+      "homepage": "https://github.com/microsoft/skills",
+      "install": {
+        "method": "selective-copy",
+        "command": "Copy individual SKILL.md files from .github/plugins/<lang>/skills/<skill-name>/ into target project .claude/skills/"
+      },
+      "auth_model": "none",
+      "technologies": ["azure", "dotnet", "python", "typescript", "java", "rust", "microsoft-foundry"],
+      "skills": {
+        "total": 174,
+        "languages": ["core", "foundry", "python", "dotnet", "typescript", "java", "rust"],
+        "high_value_for_ams": [
+          "mcp-builder",
+          "skill-creator",
+          "cloud-solution-architect",
+          "azure-ai-projects-ts",
+          "azure-ai-projects-py",
+          "azure-identity-ts",
+          "azure-search-documents-ts",
+          "foundry-hosted-agents",
+          "foundry-observability"
+        ]
+      },
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 5,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 3,
+          "composability": "pass",
+          "security": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Version alignment: skills reference specific SDK versions — must verify against target project lockfile before ingestion. Stale skill = accuracy risk."
+        ],
+        "notes": "174 production-ready skills, 1,158 test scenarios (Ralph Loop). Same SKILL.md format as AMS learn-codebase output — directly composable. Ingestion model: selective copy of individual skills, not bulk import. learn-codebase should cross-reference this pack during ecosystem discovery step rather than regenerating Azure SDK domain knowledge from scratch. friction_cost=3 because per-skill version alignment check is required on ingestion."
+      }
+    },
+    "vercel-plugin": {
+      "id": "vercel-plugin",
+      "type": "skill-pack",
+      "name": "Vercel Ecosystem Plugin",
+      "vendor": "Vercel",
+      "version": "current",
+      "homepage": "https://github.com/vercel/vercel-plugin",
+      "install": {
+        "method": "selective-copy",
+        "command": "Copy relevant SKILL.md files from vercel-plugin into target project .claude/skills/"
+      },
+      "auth_model": "none",
+      "technologies": ["vercel", "next.js"],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 3,
+          "composability": "pass",
+          "security": "pass",
+          "license": "pending-check",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "License not confirmed during initial curation — check github.com/vercel/vercel-plugin before production use"
+        ],
+        "notes": "Relational knowledge graph + skills for every major Vercel product. Effective pre-built AMS output for Vercel-hosted projects. Pairs well with vercel-mcp and next-devtools-mcp. Ingestion: selective copy of product-specific skills. Full license check required before recommending to commercial projects."
+      }
+    },
+    "storybook-mcp": {
+      "id": "storybook-mcp",
+      "type": "mcp",
+      "name": "Storybook MCP",
+      "vendor": "Storybook (storybookjs org — official)",
+      "version": "0.7.0",
+      "homepage": "https://github.com/storybookjs/mcp",
+      "install": {
+        "method": "npx",
+        "command": "npx @storybook/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["storybook"],
+      "tools": [
+        { "name": "list-all-stories", "crud": "pure-read", "side_effects": [] },
+        { "name": "list-all-components", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-story-source-code", "crud": "pure-read", "side_effects": [] },
+        { "name": "list-all-documentation", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-documentation", "crud": "pure-read", "side_effects": [] },
+        { "name": "get-documentation-for-story", "crud": "pure-read", "side_effects": [] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 3,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 3,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Knowledge-only — reads stories and docs but cannot execute tests or verify component behaviour. Must be paired with storybook-addon-mcp to close the AI write→test→self-correct loop."
+        ],
+        "notes": "Official Storybook org. Serves component and story knowledge from running Storybook manifests — replaces AI guessing about component API, props, and usage patterns. All tools are pure-read. Requires Storybook dev server running (typically localhost:6006). Pairs with storybook-addon-mcp for test execution. 3M+ monthly downloads. Last commit 2026-04-30."
+      }
+    },
+    "storybook-addon-mcp": {
+      "id": "storybook-addon-mcp",
+      "type": "mcp",
+      "name": "Storybook Addon MCP (Test Execution)",
+      "vendor": "Storybook (storybookjs org — official)",
+      "version": "0.6.0",
+      "homepage": "https://www.npmjs.com/package/@storybook/addon-mcp",
+      "install": {
+        "method": "npm-addon",
+        "command": "npm install -D @storybook/addon-mcp @storybook/addon-vitest vitest && add '@storybook/addon-mcp' to .storybook/main.ts addons array"
+      },
+      "auth_model": "none",
+      "technologies": ["storybook"],
+      "tools": [
+        { "name": "run-story-tests", "crud": "read-with-side-effects", "side_effects": ["Triggers Vitest test runner via Storybook channel; writes test result artefacts; may update coverage reports"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 5,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 2,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "MIT",
+          "auth_model": "pass"
+        },
+        "gaps": [],
+        "notes": "Official Storybook org. Closes the AI development loop: AI writes component → calls run-story-tests → receives structured pass/fail + a11y violations + error details → self-corrects → repeats until green. This is the primary automated verification mechanism for component development. run-story-tests returns { passingStoryCount, failingStoryCount, a11yViolationCount, unhandledErrorCount } plus per-story error details. Conditional approval: requires @storybook/addon-vitest and vitest to be installed and configured — high friction_cost=2 for first-time setup. README is thin (12 lines); implementation is clear from source. Pairs with storybook-mcp for component knowledge context before writing."
+      }
+    },
+    "playwright-mcp": {
+      "id": "playwright-mcp",
+      "type": "mcp",
+      "name": "Playwright MCP",
+      "vendor": "Microsoft (Playwright team — official)",
+      "version": "0.0.74",
+      "homepage": "https://github.com/microsoft/playwright-mcp",
+      "install": {
+        "method": "npx",
+        "command": "npx @playwright/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["playwright", "storybook"],
+      "tools": [
+        { "name": "browser_navigate", "crud": "write", "side_effects": ["Changes browser URL; triggers page load; records in history"] },
+        { "name": "browser_navigate_back", "crud": "write", "side_effects": ["Navigates browser history back"] },
+        { "name": "browser_snapshot", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_screenshot", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_click", "crud": "write", "side_effects": ["Triggers click event; may change page state, submit forms, navigate"] },
+        { "name": "browser_type", "crud": "write", "side_effects": ["Enters text into focused element"] },
+        { "name": "browser_fill", "crud": "write", "side_effects": ["Sets input value directly"] },
+        { "name": "browser_fill_form", "crud": "write", "side_effects": ["Fills multiple form fields; may trigger validation"] },
+        { "name": "browser_hover", "crud": "write", "side_effects": ["Triggers hover/mouseover events; may change UI state"] },
+        { "name": "browser_drag", "crud": "write", "side_effects": ["Triggers drag events; may reorder DOM or state"] },
+        { "name": "browser_drop", "crud": "write", "side_effects": ["Completes drag-drop; modifies page state"] },
+        { "name": "browser_select_option", "crud": "write", "side_effects": ["Changes select element value; triggers change events"] },
+        { "name": "browser_press_key", "crud": "write", "side_effects": ["Triggers keyboard events; may submit forms, navigate, change state"] },
+        { "name": "browser_resize", "crud": "write", "side_effects": ["Changes viewport size; triggers resize events"] },
+        { "name": "browser_handle_dialog", "crud": "write", "side_effects": ["Dismisses or accepts browser dialogs"] },
+        { "name": "browser_file_upload", "crud": "write", "side_effects": ["Attaches file to upload input"] },
+        { "name": "browser_evaluate", "crud": "read-with-side-effects", "side_effects": ["Executes arbitrary JavaScript in page context; can cause any side effect depending on script"] },
+        { "name": "browser_wait_for", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_tabs", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_close", "crud": "write", "side_effects": ["Closes active browser tab/context"] },
+        { "name": "browser_console_messages", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_network_requests", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_network_request", "crud": "pure-read", "side_effects": [] },
+        { "name": "browser_run_code_unsafe", "crud": "destructive", "side_effects": ["Runs arbitrary unsafe code in browser; potential for irreversible state changes"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "Apache-2.0",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Does not directly run Storybook story-level tests — complements storybook-addon-mcp by covering interactive/DOM assertions that run-story-tests cannot express. Use addon-mcp first; use playwright-mcp for deeper behavioural verification."
+        ],
+        "notes": "Official Microsoft/Playwright team. Enables AI to navigate to Storybook (localhost:6006), interact with components, and assert DOM state — closing the AI write→verify loop for interactive behaviour beyond what Vitest story tests cover. browser_run_code_unsafe is destructive — must never fire in audit/read-only modes. browser_evaluate is read-with-side-effects — treat with caution. Very active: v0.0.74 published 2026-05-06. Last commit 2026-05-06. Apache-2.0."
+      }
+    },
+    "sitecore-server-mcp": {
+      "id": "sitecore-server-mcp",
+      "type": "mcp",
+      "name": "Sitecore MCP Server",
+      "vendor": "Community — Antonytm (EXDST; verifiable maintainer)",
+      "version": "1.3.12",
+      "homepage": "https://github.com/Antonytm/mcp-sitecore-server",
+      "install": {
+        "method": "npx",
+        "command": "npx @Antonytm/mcp-sitecore-server@latest (or Docker: docker run antonytm/mcp-sitecore-server)"
+      },
+      "auth_model": "api_key",
+      "technologies": ["sitecore-xmc", "sitecore-jss", "sitecore-content-sdk"],
+      "tools": [
+        { "name": "graphql_introspect", "crud": "pure-read", "side_effects": [] },
+        { "name": "graphql_query", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_item", "crud": "pure-read", "side_effects": [] },
+        { "name": "search_items", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_stored_queries", "crud": "pure-read", "side_effects": [] },
+        { "name": "create_item", "crud": "write", "side_effects": ["Creates Sitecore item; may trigger workflow and publishing"] },
+        { "name": "update_item", "crud": "write", "side_effects": ["Updates Sitecore item fields; may trigger workflow"] },
+        { "name": "delete_item", "crud": "destructive", "side_effects": ["Permanently deletes Sitecore item and children unless recycled"] },
+        { "name": "get_layout", "crud": "pure-read", "side_effects": [] },
+        { "name": "update_layout", "crud": "write", "side_effects": ["Modifies component layout/datasource assignments"] },
+        { "name": "get_users", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_roles", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_item_acl", "crud": "pure-read", "side_effects": [] },
+        { "name": "update_user", "crud": "write", "side_effects": ["Modifies Sitecore user account"] },
+        { "name": "update_role_acl", "crud": "write", "side_effects": ["Changes access control; affects all users in role"] },
+        { "name": "execute_powershell", "crud": "write", "side_effects": ["Runs arbitrary PowerShell on Sitecore instance; scope depends on script — can be destructive"] },
+        { "name": "get_powershell_docs", "crud": "pure-read", "side_effects": [] },
+        { "name": "get_index_details", "crud": "pure-read", "side_effects": [] },
+        { "name": "rebuild_index", "crud": "write", "side_effects": ["Triggers full index rebuild; resource-intensive; may affect search availability"] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "conditional",
+          "harness_strength": 4,
+          "domain_depth": 5,
+          "accuracy_risk": "pass",
+          "friction_cost": 2,
+          "composability": "pass",
+          "security": "conditional",
+          "crud_truthfulness": "pass",
+          "license": "conditional",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Covers Sitecore server-side APIs (GraphQL, Item Service, PowerShell). Does NOT cover Sitecore Content SDK JavaScript patterns (@sitecore-content-sdk/* composition, component factory, personalization hooks). Pair with a sitecore-xmc-knowledge domain skill generated by learn-codebase to cover the JS SDK layer."
+        ],
+        "notes": "Community tool by Antonytm (EXDST company, 124 public repos, verifiable professional identity). Not official Sitecore — note this to clients. Apache-2.0 in GitHub repo but license field missing from package.json — resolve before production use. 100+ tools covering GraphQL, Item Service, PowerShell, Security, Presentation, Indexing. Last commit 2026-04-11 (active). Docker install available for CI use. SECURITY: execute_powershell runs arbitrary scripts on the Sitecore instance — must be blocked in read-only and audit modes. update_role_acl is sensitive — security posture requires strict human gate. friction_cost=2 because requires running Sitecore instance with Sitecore PowerShell Extensions installed and API credentials. Supersedes sitecore-knowledge-mcp scaffold."
+      }
+    },
+    "eslint-mcp": {
+      "id": "eslint-mcp",
+      "type": "mcp",
+      "name": "ESLint MCP",
+      "vendor": "ESLint (OpenJS Foundation — official)",
+      "version": "0.3.5",
+      "homepage": "https://github.com/eslint/rewrite",
+      "install": {
+        "method": "npx",
+        "command": "npx @eslint/mcp@latest"
+      },
+      "auth_model": "none",
+      "technologies": ["eslint", "typescript", "javascript"],
+      "tools": [
+        { "name": "lint_text", "crud": "pure-read", "side_effects": [] },
+        { "name": "check_code", "crud": "pure-read", "side_effects": [] }
+      ],
+      "harness": {
+        "scored_at": "2026-05-07",
+        "verdict": "approved (conditional)",
+        "scores": {
+          "provenance": "pass",
+          "harness_strength": 4,
+          "domain_depth": 4,
+          "accuracy_risk": "pass",
+          "friction_cost": 4,
+          "composability": "pass",
+          "security": "pass",
+          "crud_truthfulness": "pass",
+          "license": "Apache-2.0",
+          "auth_model": "pass"
+        },
+        "gaps": [
+          "Tool list not fully documented in README (12-line README in monorepo). Exact tool names (lint_text vs check_code) should be confirmed by connecting to the server and calling tools/list during project setup."
+        ],
+        "notes": "Official ESLint org (OpenJS Foundation). Apache-2.0. Enables AI to lint code as part of the write→verify loop — AI writes code, calls lint, reads violations, self-corrects before reporting done. Supports ESLint v9 flat config (eslint.config.js). Very recently updated (2026-05-06 — 1 day before curation). Conditional approval: tool names unconfirmed due to thin README — verify via tools/list on first install. Re-evaluate tool list after connection. friction_cost=4 because ESLint config is already project-local (low overhead once project has eslint.config.js)."
+      }
+    }
+  }
+}

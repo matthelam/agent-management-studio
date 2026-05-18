@@ -142,13 +142,14 @@ These are new capabilities introduced in v2:
 - `templates/hooks/` (settings.json + 5 scripts) — entirely new layer (OLD had no hook system)
 - `procedures/audit-logging.md` — explicit codification of how skills emit audit events (was implicit in OLD)
 - `procedures/shared/` — flat shared layout (OLD inlined-or-not was inconsistent)
-- `registries/tech-mcp-map.json` — new
-- `registries/mcp-catalogue.json` — new
+- `registries/tool-catalogue.json` — new (v2.2; replaces mcp-catalogue.json)
+- `registries/tech-tool-map.json` — new (v2.2; replaces tech-mcp-map.json)
+- `registries/skill-pack-registry.json` — new (v2.2; external skill pack source tracker)
 - `registries/tool-crud-profile.json` — new
 - `registries/specialist-catalogue.json` — extracted from init's matching logic
 - `registries/build-deploy-signatures.json` — new (the build/deploy intelligence requirement)
-- `registries/mcp-harness.md` — new (MCP quality bar)
-- `.claude/skills/curate-mcp/` — new AMS-side maintenance skill
+- `registries/tool-harness.md` — new (v2.2; replaces mcp-harness.md; harness-strength-first evaluation)
+- `.claude/skills/curate-tools/` — new AMS-side maintenance skill (v2.2; replaces curate-mcp; handles MCPs, skill packs, and agent configs)
 - `docs/build-deploy.md` — new (build/deploy intelligence model)
 - Build/deploy intelligence in `learn-codebase` (Step 3) — **new requirement** per user
 

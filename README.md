@@ -73,7 +73,7 @@ agent-management-studio/
 │   └── skills/            # AMS-only skills (Claude Code discovers these
 │       │                  # when you run Claude Code inside this repo)
 │       ├── learn-codebase/  # Bootstrap a target repo
-│       └── curate-mcp/      # Add/refresh MCP catalogue entries
+│       └── curate-tools/     # Add/refresh tool catalogue entries (MCPs, skill packs, agent configs)
 ├── templates/             # Materials seeded into target repos
 │   ├── skills/            # Seeded skill templates (7 skills)
 │   ├── universal/         # posture.md + standards/*
@@ -92,12 +92,13 @@ agent-management-studio/
 │   ├── audit-logging.md
 │   └── shared/            # Pieces inlined by multiple procedures
 ├── registries/            # Curated source-of-truth data
-│   ├── tech-mcp-map.json
-│   ├── mcp-catalogue.json
-│   ├── tool-crud-profile.json
+│   ├── tool-catalogue.json       # MCPs, skill packs, agent configs — all tool types
+│   ├── tech-tool-map.json        # Tech → recommended tools by type
+│   ├── skill-pack-registry.json  # External skill pack sources + per-skill ingestion status
+│   ├── tool-crud-profile.json    # Per-method CRUD truthfulness
+│   ├── tool-harness.md           # Harness-strength-first evaluation criteria
 │   ├── specialist-catalogue.json
-│   ├── build-deploy-signatures.json
-│   └── mcp-harness.md
+│   └── build-deploy-signatures.json
 └── docs/
     ├── architecture.md
     ├── seeding.md
@@ -146,7 +147,7 @@ None reference back to AMS paths — target is fully independent.
   distribution is a v2 consideration.
 - **Not a runtime dependency** — once `learn-codebase` has seeded a target,
   AMS can be deleted and the target still works.
-- **Not real-time MCP discovery** — v1 ships a curated registry; ecosystem
+- **Not real-time tool discovery** — v1 ships a curated registry; ecosystem
   discovery happens against that registry. Real-time online discovery for
   unknown tech is v2.
 - **Not an automatic build/deploy executor** — v1 surfaces canonical commands
@@ -172,8 +173,7 @@ See LICENSE.
   v2
 - [Build & deploy intelligence](docs/build-deploy.md) — How `learn-codebase`
   identifies canonical build/deploy commands
-- [MCP quality harness](registries/mcp-harness.md) — Bar for adding MCPs to
-  the curated registry
+- [Tool quality harness](registries/tool-harness.md) — Harness-strength-first evaluation bar for MCPs, skill packs, and agent configs
 
 ## v2 directories at a glance
 

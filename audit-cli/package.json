@@ -1,0 +1,16 @@
+{
+  "name": "ams-audit",
+  "version": "1.0.0",
+  "description": "AMS deterministic audit logger — CLI + SQLite queue for Claude Code hook events",
+  "bin": {
+    "ams-audit": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "bun build src/index.ts --compile --outfile dist/ams-audit --target bun",
+    "install-global": "bun install --global .",
+    "dev": "bun run src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

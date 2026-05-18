@@ -1,0 +1,238 @@
+{
+  "_comment": "Tech key → recommended tools by type (MCPs, skill-packs, agent-configs), CLIs, and specialists. Replaces tech-mcp-map.json v2. Each tool ID references tool-catalogue.json. official_docs_url is the doc-fallback domain skills use when uncertain about implementation.",
+  "_version": "3.0.0",
+  "_updated": "2026-05-07",
+  "technologies": {
+    "next.js": {
+      "mcps": ["next-devtools-mcp"],
+      "skill_packs": ["vercel-plugin"],
+      "agent_configs": [],
+      "clis": ["next"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://nextjs.org/docs"
+    },
+    "react": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://react.dev/reference/react"
+    },
+    "tailwindcss": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["tailwindcss"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://tailwindcss.com/docs"
+    },
+    "radix-ui": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": ["frontend-dev", "accessibility-audit"],
+      "official_docs_url": "https://www.radix-ui.com/primitives/docs"
+    },
+    "shadcn-ui": {
+      "mcps": ["shadcn-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["shadcn"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://ui.shadcn.com/docs",
+      "_note": "shadcn-mcp handles discovery+install. Pair with tailwind-radix domain skill to close harness gap on correct component usage patterns."
+    },
+    "class-variance-authority": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://cva.style/docs"
+    },
+    "vercel": {
+      "mcps": ["vercel-mcp"],
+      "skill_packs": ["vercel-plugin"],
+      "agent_configs": [],
+      "clis": ["vercel"],
+      "specialists": ["docker-ops"],
+      "official_docs_url": "https://vercel.com/docs"
+    },
+    "azure": {
+      "mcps": ["azure-mcp"],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["az", "azd"],
+      "specialists": ["docker-ops", "security-audit"],
+      "official_docs_url": "https://learn.microsoft.com/azure"
+    },
+    "dotnet": {
+      "mcps": [],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["dotnet"],
+      "specialists": ["backend-dev", "code-review"],
+      "official_docs_url": "https://learn.microsoft.com/dotnet"
+    },
+    "python": {
+      "mcps": [],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["python", "pip", "uv"],
+      "specialists": ["backend-dev"],
+      "official_docs_url": "https://docs.python.org/3"
+    },
+    "atlassian-jira": {
+      "mcps": ["atlassian-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": [],
+      "skills": ["jira-context"],
+      "official_docs_url": "https://support.atlassian.com/jira-software-cloud"
+    },
+    "atlassian-confluence": {
+      "mcps": ["atlassian-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": [],
+      "official_docs_url": "https://support.atlassian.com/confluence-cloud"
+    },
+    "storyblok": {
+      "mcps": ["storyblok-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": ["cms-wrapper-dev", "content-author"],
+      "official_docs_url": "https://www.storyblok.com/docs"
+    },
+    "sitecore-xmc": {
+      "mcps": ["sitecore-server-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev", "content-author"],
+      "official_docs_url": "https://doc.sitecore.com/xmc",
+      "_note": "sitecore-server-mcp covers XMC GraphQL, Item Service, PowerShell, Presentation APIs. JS SDK patterns (@sitecore-content-sdk/*) need compensating domain skill from learn-codebase."
+    },
+    "sitecore-content-sdk": {
+      "mcps": ["sitecore-server-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["sitecore"],
+      "specialists": ["sitecore-xmc-dev", "cms-wrapper-dev"],
+      "official_docs_url": "https://doc.sitecore.com/xmc/en/developers/content-sdk",
+      "_note": "sitecore-server-mcp provides server-side access. Client-side SDK composition patterns need a sitecore-xmc-knowledge domain skill."
+    },
+    "sitecore-jss": {
+      "mcps": ["sitecore-server-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["sitecore"],
+      "specialists": ["cms-wrapper-dev", "content-author"],
+      "official_docs_url": "https://doc.sitecore.com/xp/en/developers/jss"
+    },
+    "turborepo": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["turbo"],
+      "specialists": [],
+      "official_docs_url": "https://turborepo.com/docs",
+      "_compensating_skill_required": true,
+      "_note": "No viable MCP — turbo-docs-mcp-server (community) last commit Jan 2025, stale-fail (>365 days). learn-codebase must generate turborepo-knowledge domain skill covering pipeline definitions, remote cache, workspace task patterns for this monorepo."
+    },
+    "tailwindcss-v4": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["tailwindcss"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://tailwindcss.com/docs/v4-beta",
+      "_compensating_skill_required": true,
+      "_note": "No official MCP from Tailwind Labs. Community MCPs (tailwindcss-mcp, tailwindcss-mcp-server) last updated Feb–Mar 2025 — stale-warning. Neither covers v4 breaking changes. learn-codebase must generate tailwindcss-v4-knowledge covering: CSS-first config (@theme in CSS, no tailwind.config.js), oklch color palette, container queries, @utility, @variant."
+    },
+    "storybook": {
+      "mcps": ["storybook-mcp", "storybook-addon-mcp", "playwright-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["storybook"],
+      "specialists": ["storybook-dev"],
+      "official_docs_url": "https://storybook.js.org/docs",
+      "_note": "storybook-mcp = component knowledge; storybook-addon-mcp = test execution loop (run-story-tests); playwright-mcp = interactive/DOM assertions on localhost:6006"
+    },
+    "chromatic": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["chromatic"],
+      "specialists": ["storybook-dev"],
+      "official_docs_url": "https://www.chromatic.com/docs",
+      "_note": "No MCP available for Chromatic — cloud-based visual regression, CLI-only. AI verification via storybook-addon-mcp (run-story-tests) is the primary loop; Chromatic runs in CI. No compensating domain skill needed — Chromatic is opaque to AI during development."
+    },
+    "msw": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": [],
+      "specialists": ["storybook-dev", "frontend-dev"],
+      "official_docs_url": "https://mswjs.io/docs",
+      "_compensating_skill_required": true,
+      "_note": "msw-mcp (community, JasonBoy) approaching stale-warning (84 days as of May 2026) — rejected. learn-codebase must generate msw-knowledge domain skill covering: http.get/post/put/delete handler patterns, GraphQL handlers, passthrough/bypass, onUnhandledRequest, integration with Storybook (msw-storybook-addon). Project uses msw@^2.11.6."
+    },
+    "playwright": {
+      "mcps": ["playwright-mcp"],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["playwright"],
+      "specialists": ["frontend-dev"],
+      "official_docs_url": "https://playwright.dev/docs/intro"
+    },
+    "eslint": {
+      "mcps": ["eslint-mcp"],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["eslint"],
+      "specialists": ["code-review"],
+      "official_docs_url": "https://eslint.org/docs/latest",
+      "_note": "eslint-mcp enables AI lint→self-correct loop. Supports flat config (v9+). Tool names unconfirmed — verify via tools/list on first install."
+    },
+    "typescript": {
+      "mcps": [],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["tsc"],
+      "specialists": ["frontend-dev", "backend-dev", "code-review"],
+      "official_docs_url": "https://www.typescriptlang.org/docs",
+      "_compensating_skill_required": true,
+      "_note": "No viable TypeScript MCP (typescript-mcp is community pre-release v0.0.14 — not production ready). AI type-check loop: invoke tsc --noEmit via Bash, read errors back into context. learn-codebase should generate typescript-strict-knowledge covering strict mode patterns, generic constraints, discriminated unions, type narrowing — scoped to this project's tsconfig.json settings."
+    },
+    "docker": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["docker"],
+      "specialists": ["docker-ops"],
+      "official_docs_url": "https://docs.docker.com"
+    },
+    "github-actions": {
+      "mcps": [],
+      "skill_packs": [],
+      "agent_configs": [],
+      "clis": ["gh"],
+      "specialists": ["docker-ops"],
+      "official_docs_url": "https://docs.github.com/actions"
+    },
+    "microsoft-foundry": {
+      "mcps": ["azure-mcp"],
+      "skill_packs": ["microsoft-skills"],
+      "agent_configs": [],
+      "clis": ["azd", "az"],
+      "specialists": ["backend-dev"],
+      "official_docs_url": "https://learn.microsoft.com/azure/ai-foundry"
+    }
+  }
+}

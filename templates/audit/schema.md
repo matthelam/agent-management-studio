@@ -527,3 +527,99 @@ The "never leave a ticket behind" check ran after Final Verify.
 ```
 
 `action_taken` is `escalated_to_human` when the transition failed and the human was notified.
+
+---
+
+### `cognitive_team_resolved`
+
+The cognitive team (harness + lenses + skills) was resolved at ticket start. Emitted once per work item, immediately after team resolution and before Phase 1.
+
+> **Index:** `audit/indexes/cognitive-snapshots.jsonl` — one summary pointer per work item.
+
+```json
+{
+  "type": "cognitive_team_resolved",
+  "payload": {
+    "mode": "single | default-team | custom-team",
+    "trigger": "silent_default | keyword_match | dev_specified",
+    "matched_keyword": "team | swarm | second opinion | null",
+    "harnesses": ["empiricist"],
+    "primary_harness": "empiricist",
+    "synthesis_harness": "synthesizer | null",
+    "lenses": ["accessibility"],
+    "skills_active": [
+      {
+        "skill_id": "sitecore-knowledge",
+        "load_reason": "proximity — work scope matches .claude/skills/sitecore-knowledge description"
+      },
+      {
+        "skill_id": "tailwindcss-v4-knowledge",
+        "load_reason": "proximity — file pattern match on apps/xmc-shadcn/**"
+      }
+    ]
+  }
+}
+```
+
+`skills_active` lists every domain skill visible in context at ticket start — those loaded by proximity trigger from their `description` field, plus any explicitly declared in the brief. `load_reason` states why the skill is active so reviewers can audit proximity accuracy.
+
+---
+
+### `skill_triggered`
+
+A domain skill was explicitly consulted during execution. Emitted when the agent actively reads a skill's content to resolve a specific implementation question (as distinct from a skill being passively present in context at load time).
+
+> **Index:** `audit/indexes/cognitive-snapshots.jsonl` — one summary pointer per trigger event.
+
+```json
+{
+  "type": "skill_triggered",
+  "payload": {
+    "skill_id": "sitecore-knowledge",
+    "phase": "execute | plan | final_verify",
+    "reason": "Resolving how to register component in component factory — consulting sitecore-knowledge GUARD RAILS section",
+    "outcome": "pattern_applied | guard_rail_enforced | doc_fallback_used | no_match"
+  }
+}
+```
+
+`outcome` values:
+- `pattern_applied` — a project-specific pattern from the skill guided the implementation
+- `guard_rail_enforced` — a GUARD RAIL in the skill blocked or redirected the implementation
+- `doc_fallback_used` — skill's `official_docs_url` was used because the skill didn't cover the specific case
+- `no_match` — skill was consulted but contained no relevant guidance; implementation proceeded without it
+
+---
+
+### `cognitive_state_changed`
+
+The active harness, lenses, or skill set changed mid-ticket. Emitted whenever the cognitive configuration shifts after `cognitive_team_resolved` was logged.
+
+> **Index:** `audit/indexes/cognitive-snapshots.jsonl` — one summary pointer per change.
+
+```json
+{
+  "type": "cognitive_state_changed",
+  "payload": {
+    "phase": "brief | plan | execute | final_verify",
+    "trigger": "dev_override | escalation | resolver_peer_consult | skill_proximity_change",
+    "from": {
+      "harnesses": ["empiricist"],
+      "lenses": [],
+      "skills_active": ["sitecore-knowledge"]
+    },
+    "to": {
+      "harnesses": ["empiricist", "skeptic"],
+      "lenses": ["security"],
+      "skills_active": ["sitecore-knowledge", "eslint-knowledge"]
+    },
+    "change_description": "Dev added skeptic + security lens after plan review surfaced auth concern"
+  }
+}
+```
+
+`trigger` values:
+- `dev_override` — developer explicitly changed mode ("add security lens", "bring in skeptic")
+- `escalation` — resolver escalated to peer consult, spinning up an additional harness
+- `resolver_peer_consult` — a peer harness was invoked mid-execute by the resolver
+- `skill_proximity_change` — work moved into a different file area, triggering a different skill set

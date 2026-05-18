@@ -157,7 +157,7 @@ hooks are designed to be **order-independent**:
 
 ## What's deliberately not in v1
 
-- **Real-time online MCP discovery** — v2.
+- **Real-time online tool discovery** — v2.
 - **Auto-execution of canonical build/deploy commands** — v2 with sandboxing.
 - **Plugin distribution** — v2.
 - **Migration of existing OLD project profiles** — v1 is forward-only;
@@ -177,7 +177,6 @@ sophistication.
 - [seeding.md](seeding.md) — what `learn-codebase` actually seeds
 - [migration-map.md](migration-map.md) — how OLD AMS harnesses moved to v2
 - [build-deploy.md](build-deploy.md) — the build/deploy intelligence model
-- [../registries/mcp-harness.md](../registries/mcp-harness.md) — MCP quality
-  bar
+- [../registries/tool-harness.md](../registries/tool-harness.md) — Tool quality harness (MCPs, skill packs, agent configs)
 - [../.claude/skills/learn-codebase/SKILL.md](../.claude/skills/learn-codebase/SKILL.md) —
   the engine procedure

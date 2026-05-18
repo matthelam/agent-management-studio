@@ -1,0 +1,67 @@
+{
+  "_comment": "Registry of external skill pack sources. Tracks origin repos, per-skill ingestion status, and version alignment. Used by learn-codebase to pull pre-built domain knowledge instead of regenerating from scratch.",
+  "_version": "1.0.0",
+  "_updated": "2026-05-07",
+  "sources": {
+    "microsoft-skills": {
+      "id": "microsoft-skills",
+      "repo": "https://github.com/microsoft/skills",
+      "vendor": "Microsoft",
+      "license": "MIT",
+      "total_skills": 174,
+      "skill_root": ".github/plugins",
+      "structure": "plugins/<lang>/skills/<skill-name>/SKILL.md",
+      "languages": ["core", "foundry", "python", "dotnet", "typescript", "java", "rust"],
+      "ingestion_model": "selective",
+      "ingestion_notes": "Copy individual SKILL.md files into target project .claude/skills/. Check library version in skill against target project lockfile before copy. Do not bulk-import — only ingest skills for technologies present in the target.",
+      "last_checked": "2026-05-07",
+      "skills": {
+        "mcp-builder": { "path": ".github/skills/mcp-builder/SKILL.md", "technologies": ["mcp"], "ingested_in": [] },
+        "skill-creator": { "path": ".github/skills/skill-creator/SKILL.md", "technologies": ["agent-tooling"], "ingested_in": [] },
+        "cloud-solution-architect": { "path": ".github/skills/cloud-solution-architect/SKILL.md", "technologies": ["azure"], "ingested_in": [] },
+        "copilot-sdk": { "path": ".github/skills/copilot-sdk/SKILL.md", "technologies": ["github-copilot"], "ingested_in": [] },
+        "entra-agent-id": { "path": ".github/skills/entra-agent-id/SKILL.md", "technologies": ["azure", "microsoft-foundry"], "ingested_in": [] },
+        "frontend-design-review": { "path": ".github/skills/frontend-design-review/SKILL.md", "technologies": ["react", "tailwindcss"], "ingested_in": [] },
+        "github-issue-creator": { "path": ".github/skills/github-issue-creator/SKILL.md", "technologies": ["github"], "ingested_in": [] },
+        "github-primer-brand": { "path": ".github/skills/github-primer-brand/SKILL.md", "technologies": ["react"], "ingested_in": [] },
+        "podcast-generation": { "path": ".github/skills/podcast-generation/SKILL.md", "technologies": ["azure"], "ingested_in": [] },
+        "frontend-ui-dark-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/frontend-ui-dark-ts/SKILL.md", "technologies": ["react", "tailwindcss"], "ingested_in": [] },
+        "react-flow-node-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/react-flow-node-ts/SKILL.md", "technologies": ["react"], "ingested_in": [] },
+        "zustand-store-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/zustand-store-ts/SKILL.md", "technologies": ["react", "typescript"], "ingested_in": [] },
+        "azure-ai-projects-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-ai-projects-ts/SKILL.md", "technologies": ["azure", "microsoft-foundry", "typescript"], "ingested_in": [] },
+        "azure-identity-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-identity-ts/SKILL.md", "technologies": ["azure", "typescript"], "ingested_in": [] },
+        "azure-search-documents-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-search-documents-ts/SKILL.md", "technologies": ["azure", "typescript"], "ingested_in": [] },
+        "azure-cosmos-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-cosmos-ts/SKILL.md", "technologies": ["azure", "typescript"], "ingested_in": [] },
+        "azure-storage-blob-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-storage-blob-ts/SKILL.md", "technologies": ["azure", "typescript"], "ingested_in": [] },
+        "azure-monitor-opentelemetry-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/azure-monitor-opentelemetry-ts/SKILL.md", "technologies": ["azure", "typescript"], "ingested_in": [] },
+        "aspire-ts": { "path": ".github/plugins/azure-sdk-typescript/skills/aspire-ts/SKILL.md", "technologies": ["dotnet", "azure"], "ingested_in": [] },
+        "foundry-hosted-agents": { "path": ".github/plugins/azure-skills/skills/foundry-hosted-agents/SKILL.md", "technologies": ["microsoft-foundry"], "ingested_in": [] },
+        "foundry-observability": { "path": ".github/plugins/azure-skills/skills/foundry-observability/SKILL.md", "technologies": ["microsoft-foundry", "azure"], "ingested_in": [] },
+        "foundry-workflows": { "path": ".github/plugins/azure-skills/skills/foundry-workflows/SKILL.md", "technologies": ["microsoft-foundry"], "ingested_in": [] },
+        "microsoft-foundry": { "path": ".github/plugins/azure-skills/skills/microsoft-foundry/SKILL.md", "technologies": ["microsoft-foundry"], "ingested_in": [] }
+      }
+    },
+    "vercel-plugin": {
+      "id": "vercel-plugin",
+      "repo": "https://github.com/vercel/vercel-plugin",
+      "vendor": "Vercel",
+      "license": "pending-check",
+      "_license_note": "LICENSE file present in repo but type not confirmed — check before commercial use",
+      "total_skills": 25,
+      "skill_root": "skills",
+      "structure": "skills/<skill-name>/",
+      "install": "npx plugins add vercel/vercel-plugin",
+      "ingestion_model": "selective",
+      "ingestion_notes": "25 skills organised by Vercel product domain. Installable directly via npx plugins add vercel/vercel-plugin. License type must be confirmed before recommending to commercial projects. Pairs with vercel-mcp and next-devtools-mcp.",
+      "last_checked": "2026-05-07",
+      "skill_domains": [
+        "ai-sdk", "ai-gateway", "chat-sdk",
+        "next.js-cache-components", "next.js-upgrade", "next-forge",
+        "react", "ci-cd", "deployments", "environment-variables",
+        "turbopack", "vercel-cli", "functions", "sandbox", "storage",
+        "runtime-cache", "authentication", "routing-middleware", "shadcn-ui"
+      ],
+      "skills": {}
+    }
+  }
+}

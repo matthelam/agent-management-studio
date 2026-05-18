@@ -175,21 +175,66 @@ Dev may also specify altitude override per harness for this work item.
 
 ### Audit-log the mode resolution
 
+Immediately after resolving the team, enumerate which domain skills are active
+in context (those whose `description` proximity trigger matches the work scope
+from the brief + ticket path). Log them alongside the harness and lenses so the
+trace has the complete cognitive picture at ticket start.
+
 ```json
 {
   "type": "cognitive_team_resolved",
   "actor": "system",
   "payload": {
-    "mode": "single | default | custom",
+    "mode": "single | default-team | custom-team",
     "trigger": "silent_default | keyword_match | dev_specified",
-    "matched_keyword": "team | swarm | etc.",
-    "harnesses": ["empiricist"] | [...team list],
-    "lenses": [],
+    "matched_keyword": "team | swarm | second opinion | null",
+    "harnesses": ["empiricist"],
     "primary_harness": "empiricist",
-    "synthesis_harness": "synthesizer | null"
+    "synthesis_harness": "synthesizer | null",
+    "lenses": [],
+    "skills_active": [
+      {
+        "skill_id": "<skill-id from .claude/skills/>",
+        "load_reason": "proximity — <which path pattern or keyword triggered it>"
+      }
+    ]
   }
 }
 ```
+
+`skills_active` must list every domain skill whose description proximity trigger
+matches the current work scope. If no domain skills match, emit an empty array
+`[]` — never omit the field.
+
+### Emit `cognitive_state_changed` when the cognitive configuration shifts mid-ticket
+
+If at any point after `cognitive_team_resolved` the developer overrides the
+mode, the resolver escalates to a peer harness, or a scope shift causes a
+different skill set to become active, emit:
+
+```json
+{
+  "type": "cognitive_state_changed",
+  "actor": "system | human",
+  "payload": {
+    "phase": "<current phase>",
+    "trigger": "dev_override | escalation | resolver_peer_consult | skill_proximity_change",
+    "from": {
+      "harnesses": ["<previous>"],
+      "lenses": [],
+      "skills_active": ["<previous skill ids>"]
+    },
+    "to": {
+      "harnesses": ["<new>"],
+      "lenses": ["<new>"],
+      "skills_active": ["<new skill ids>"]
+    },
+    "change_description": "<one sentence: what changed and why>"
+  }
+}
+```
+
+Emit one event per discrete change. Do not batch multiple changes into one event.
 
 ### Domain skills auto-load via proximity (always-on, regardless of team mode)
 
@@ -449,6 +494,28 @@ printf '{"timestamp":"%s","type":"phase_transition","actor":"system","payload":{
 ```
 
 Log resolver decisions inline as they occur — do not batch (see Phase 4 resolver logging rules above).
+
+### Emit `skill_triggered` each time a domain skill actively shapes a decision
+
+When you explicitly read a domain skill to resolve an implementation question —
+not just because it is passively present in context — emit:
+
+```json
+{
+  "type": "skill_triggered",
+  "actor": "agent:<harness-name>",
+  "payload": {
+    "skill_id": "<skill-id>",
+    "phase": "execute",
+    "reason": "<one sentence: what question you were resolving>",
+    "outcome": "pattern_applied | guard_rail_enforced | doc_fallback_used | no_match"
+  }
+}
+```
+
+Emit once per consultation. Do not emit for passive context presence — only when
+the skill's content directly influenced a decision (pattern chosen, GUARD RAIL
+enforced, doc-fallback invoked, or skill checked and found inapplicable).
 
 ---
 
