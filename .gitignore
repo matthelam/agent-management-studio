@@ -6,9 +6,15 @@
 # Claude Code session worktrees (per-session ephemeral)
 .claude/worktrees/
 
-# AMS-side run logs (per-skill JSONL — debugging artifacts, not source)
-# See procedures/ams-audit-logging.md for schema
+# AMS-side run logs and artifact directories
 logs/*.jsonl
+logs/.run-*/
+
+# npm / Python local installs (local-only, not committed)
+node_modules/
+package-lock.json
+scripts/learn-codebase/.venv/
+scripts/learn-codebase/__pycache__/
 
 # OS / editor noise
 .DS_Store
